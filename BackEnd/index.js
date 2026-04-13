@@ -14,6 +14,7 @@ const Sechdule_Routes = require('./Routes/Sechdule.Route')
 const PatientRoutes = require('./Routes/Patient.route')
 const Apppoitment_Routes = require('./Routes/Appoitment.route')
 const ChatRoutes = require('./Routes/Chat.route')
+const ReviewRoutes = require('./Routes/Rewiew.route')
 require('dotenv').config()
 // server.js
 app.use('/pictures', express.static(path.join(__dirname, 'public/pictures')));
@@ -25,6 +26,7 @@ app.use('',Sechdule_Routes)
 app.use('',PatientRoutes)
 app.use('',Apppoitment_Routes)
 app.use('', ChatRoutes)
+app.use('', ReviewRoutes)
 mongoose.connect(process.env.DB_URL).then(()=>
 {
     console.log("DB Connected")

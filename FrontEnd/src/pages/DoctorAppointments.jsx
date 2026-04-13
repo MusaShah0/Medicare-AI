@@ -6,38 +6,63 @@ const DoctorAppointments = () => {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [now, setNow] = useState(new Date());
+
+  // Live clock — ticks every 30s so isJoinable stays accurate
+  useEffect(() => {
+    const tick = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(tick);
+  }, []);
 
   const formatTime = (timeString) => {
     if (!timeString) return "N/A";
-    const [h, m] = timeString.split(':');
+    const [h, m] = timeString.split(':').map(Number);
     const ampm = h >= 12 ? 'PM' : 'AM';
     const formattedH = h % 12 || 12;
-    return `${formattedH}:${m} ${ampm}`;
+    return `${formattedH}:${String(m).padStart(2, '0')} ${ampm}`;
+  };
+
+  // Returns true only if slot is today AND current time is within [startTime-5min, endTime)
+  const isJoinable = (slot) => {
+    if (!slot?.date || !slot?.startTime || !slot?.endTime) return false;
+    const slotDate = new Date(slot.date);
+    if (
+      slotDate.getFullYear() !== now.getFullYear() ||
+      slotDate.getMonth()    !== now.getMonth()    ||
+      slotDate.getDate()     !== now.getDate()
+    ) return false;
+    const toMins = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    return nowMins >= toMins(slot.startTime) - 5 && nowMins < toMins(slot.endTime);
   };
 
   useEffect(() => {
     const fetchAppointments = async () => {
       try {
         const res = await axios.get('http://localhost:4000/Doctor_Appointments', {
-          withCredentials: true 
+          withCredentials: true
         });
-
         if (res.data.status === 1) {
           setAppointments(res.data.data);
         } else {
-          setAppointments([]); 
+          setAppointments([]);
         }
       } catch (err) {
         if (err.response?.status === 401) {
           setError("Please log in as a doctor.");
         } else {
-          setAppointments([]); 
+          setAppointments([]);
         }
       } finally {
         setLoading(false);
       }
     };
+
     fetchAppointments();
+
+    // Re-fetch when user returns to this tab (e.g. after leaving a video call)
+    window.addEventListener('focus', fetchAppointments);
+    return () => window.removeEventListener('focus', fetchAppointments);
   }, []);
 
   const getStatusColor = (status) => {
@@ -116,31 +141,34 @@ const DoctorAppointments = () => {
                             {/* Details */}
                             <div className="p-5 flex-1 space-y-3">
                                 <div className="flex items-center gap-3 text-slate-600 text-sm font-medium">
-                                    <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                                    {slot?.day || "N/A"}
+                                    <svg className="w-5 h-5 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    {slot?.date
+                                      ? new Date(slot.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+                                      : "N/A"}
                                 </div>
                                 <div className="flex items-center gap-3 text-slate-600 text-sm font-medium">
-                                    <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                    {formatTime(slot?.startTime)} - {formatTime(slot?.endTime)}
+                                    <svg className="w-5 h-5 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    {formatTime(slot?.startTime)} – {formatTime(slot?.endTime)}
                                 </div>
                             </div>
 
                             {/* FOOTER ACTION */}
                             <div className="bg-slate-50 p-4 border-t border-slate-100 flex justify-between items-center">
-                                <button className="text-slate-500 text-sm font-bold hover:text-teal-600 transition-colors">
-                                    View Details
-                                </button>
-                                
-                                {/* START CONSULT BUTTON */}
-                                {app.status !== 'cancelled' && (
-                                    <Link 
+                                <span className="text-xs text-slate-400">ID: {app._id.slice(-6).toUpperCase()}</span>
+
+                                {(app.status === 'booked' || app.status === 'ongoing') && isJoinable(slot) ? (
+                                    <Link
                                         to={`/room/${app.meeting_id}`}
-                                        className="bg-slate-800 hover:bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-md shadow-slate-200"
+                                        className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-md shadow-teal-200"
                                     >
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                                         Start Consult
                                     </Link>
-                                )}
+                                ) : (app.status === 'booked' || app.status === 'ongoing') ? (
+                                    <span className="text-xs text-slate-400 font-medium">
+                                        {slot?.startTime ? `Starts at ${formatTime(slot.startTime)}` : 'Upcoming'}
+                                    </span>
+                                ) : null}
                             </div>
                         </div>
                     );

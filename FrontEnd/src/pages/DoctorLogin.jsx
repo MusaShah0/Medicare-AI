@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 
-// 👇 1. Receive setRole from App.jsx
-const DoctorLogin = ({ setRole }) => {
+// 👇 setRole no longer needed — auth is verified via cookie
+const DoctorLogin = () => {
   // --- CONFIGURATION ---
   const API_URL = 'http://localhost:4000/D_LogIn'; 
 
@@ -35,29 +35,16 @@ const DoctorLogin = ({ setRole }) => {
       });
 
       if (response.data.status === 1) {
-        // --- 1. EXTRACT DATA ---
         const doctorData = response.data.doctor || response.data.data || {};
-        
-        // --- 2. PREPARE VARIABLES ---
         const firstName = doctorData.firstName || doctorData.first_Name || "Doctor";
         const speciality = doctorData.speciality || "Specialist";
 
-        // --- 3. SAVE TO LOCAL STORAGE ---
+        // Keep localStorage only for display purposes (name shown in dashboard)
         localStorage.setItem('doctorName', firstName);
         localStorage.setItem('doctorSpeciality', speciality);
-        
-        // --- 4. UPDATE APP STATE (CRITICAL FOR PRIVATE ROUTE) ---
-        // This opens the gate for the PrivateRoute immediately
-        setRole('doctor');
 
-        // Success Message
         setMessage({ type: 'success', text: response.data.msg || 'Login Successful!' });
-        
-        // Redirect
-        setTimeout(() => {
-          navigate('/doctor-dashboard'); 
-        }, 1500);
-
+        setTimeout(() => navigate('/doctor-dashboard'), 1000);
       } else {
         setMessage({ type: 'error', text: response.data.msg || 'Login failed' });
       }

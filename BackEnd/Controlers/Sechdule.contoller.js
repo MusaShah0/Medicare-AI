@@ -1,194 +1,199 @@
-const Sechdule_Model = require('../Models/sechdule.model')// Import the model
+const moment = require('moment')
+const Sechdule_Model = require('../Models/sechdule.model')
+const autoCancel = require('../utils/autoCancel')
 
+// POST /Add_Sechdule
+// Body: { dates: ["2025-07-14", "2025-07-16"], slots: [{startTime, endTime}], clinic_fee, slotDuration }
 const Add_Sechdule = async (req, res) => {
-    try {
-        // 1. Get the Arrays from Frontend
-        // We expect payload: { days: ['Monday', 'Tuesday'], slots: [{startTime: '09:00', endTime: '09:30'}, ...] }
-        const { days, slots, clinic_fee, slotDuration } = req.body;
-        const doctorId = req.doctorId; // Kept your existing ID logic
+  try {
+    const { dates, slots, clinic_fee, slotDuration } = req.body
+    const doctorId = req.doctorId
 
-        const schedulesToSave = [];
-
-        // 2. Double Loop: Iterate Days AND Slots
-        // For every Day selected...
-        for (const day of days) {
-            // For every Slot generated...
-            for (const slot of slots) {
-                
-                // Optional: Check if this specific slot already exists to prevent duplicates
-                const exists = await Sechdule_Model.findOne({
-                    doctor: doctorId,
-                    day: day,
-                    startTime: slot.startTime
-                });
-
-                if (!exists) {
-                    schedulesToSave.push({
-                        doctor: doctorId,
-                        day: day,
-                        startTime: slot.startTime,
-                        endTime: slot.endTime,
-                        clinic_fee: clinic_fee,
-                        slotDuration: slotDuration,
-                        status: 'available'
-                    });
-                }
-            }
-        }
-
-        // 3. Bulk Insert (Much faster than saving one by one)
-        if (schedulesToSave.length > 0) {
-            await Sechdule_Model.insertMany(schedulesToSave);
-            
-            res.status(201).json({
-                success: true,
-                message: `Successfully added ${schedulesToSave.length} slots.`,
-            });
-        } else {
-            res.status(400).json({
-                success: false,
-                message: "No new slots were created (they might already exist).",
-            });
-        }
-
-    } catch (error) {
-        console.error("Error adding schedule:", error);
-        res.status(500).json({
-            success: false,
-            message: "Failed to add schedule",
-            error: error.message
-        });
+    if (!dates || !Array.isArray(dates) || dates.length === 0) {
+      return res.status(400).json({ success: false, message: 'Please provide at least one date.' })
     }
-};
+    if (!slots || !Array.isArray(slots) || slots.length === 0) {
+      return res.status(400).json({ success: false, message: 'Please provide at least one time slot.' })
+    }
 
+    const todayMidnight = moment().startOf('day')
 
+    // Step 1 — Reject past dates upfront, collect ALL invalid ones before responding
+    const invalidDates = []
+    for (const dateStr of dates) {
+      const d = moment(dateStr, 'YYYY-MM-DD', true)
+      if (!d.isValid()) {
+        return res.status(400).json({ success: false, message: `Invalid date format: ${dateStr}. Use YYYY-MM-DD.` })
+      }
+      if (d.isBefore(todayMidnight)) {
+        invalidDates.push(dateStr)
+      }
+    }
+    if (invalidDates.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot add schedule for past dates',
+        invalidDates
+      })
+    }
+
+    // Step 2 — Check ALL date×slot combos for conflicts before inserting anything
+    const conflicts = []
+    const schedulesToSave = []
+
+    for (const dateStr of dates) {
+      const dateObj = moment(dateStr, 'YYYY-MM-DD').toDate()
+
+      for (const slot of slots) {
+        const existing = await Sechdule_Model.findOne({
+          doctor: doctorId,
+          date: dateObj,
+          startTime: slot.startTime,
+          status: { $in: ['available', 'booked', 'ongoing'] }
+        })
+
+        if (existing) {
+          conflicts.push({ date: dateStr, startTime: slot.startTime })
+        } else {
+          schedulesToSave.push({
+            doctor: doctorId,
+            date: dateObj,
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            clinic_fee,
+            slotDuration,
+            status: 'available'
+          })
+        }
+      }
+    }
+
+    // If ANY conflict found — reject the entire batch, never partial insert
+    if (conflicts.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'Some slots already exist for the selected dates and times',
+        conflicts
+      })
+    }
+
+    // Step 3 — No conflicts, bulk insert
+    await Sechdule_Model.insertMany(schedulesToSave)
+
+    return res.status(201).json({
+      success: true,
+      message: 'Schedule added successfully',
+      count: schedulesToSave.length
+    })
+
+  } catch (error) {
+    console.error('Add_Sechdule Error:', error)
+    return res.status(500).json({ success: false, message: 'Failed to add schedule', error: error.message })
+  }
+}
+
+// GET /Show_Doctor_Sechdule
+// Returns doctor's upcoming active slots, auto-cancels past ones, sorted by date then startTime
 const Show_Doctor_Sechdule = async (req, res) => {
   try {
-    const doctorId = req.doctorId;
+    const doctorId = req.doctorId
 
-    const schedule = await Sechdule_Model.find({ doctor: doctorId });
+    // Fetch active slots to check for auto-cancel
+    const schedules = await Sechdule_Model.find({
+      doctor: doctorId,
+      status: { $in: ['available', 'booked'] }
+    })
 
-    if (!schedule || schedule.length === 0) {
-      return res.status(404).json({
-        status: 0,
-        msg: "No schedule found"
-      });
+    // Auto-cancel past slots (pass as 'schedule' mode)
+    await autoCancel(schedules, 'schedule')
+
+    // Return only still-active slots, sorted
+    const activeSchedules = await Sechdule_Model.find({
+      doctor: doctorId,
+      status: { $in: ['available', 'booked'] }
+    }).sort({ date: 1, startTime: 1 })
+
+    if (!activeSchedules || activeSchedules.length === 0) {
+      return res.status(404).json({ status: 0, msg: 'No upcoming schedules found' })
     }
 
-    return res.status(200).json({
-      status: 1,
-      data: schedule
-    });
+    return res.status(200).json({ status: 1, data: activeSchedules })
 
   } catch (error) {
-    return res.status(500).json({
-      status: 0,
-      msg: "Server error",
-      error: error.message
-    });
+    console.error('Show_Doctor_Sechdule Error:', error)
+    return res.status(500).json({ status: 0, msg: 'Server error', error: error.message })
   }
-};
+}
 
-const Show_Doctor_Sechdule_Day = async function (req, res) {
+// GET /Show_Doctor_Sechdule/:id  — :id is now a date string (YYYY-MM-DD)
+const Show_Doctor_Sechdule_Day = async (req, res) => {
   try {
-    const day = req.params.id;
-    const doctorId = req.doctorId;
-     console.log(day)
-    console.log(doctorId) 
-    const sechdule = await Sechdule_Model.find({
-      day: day,
-      doctor: doctorId
-    });
+    const dateStr = req.params.id
+    const doctorId = req.doctorId
 
-    if (!sechdule || sechdule.length === 0) {
-      return res.status(404).json({
-        status: 0,
-        msg: "Not Found"
-      });
+    const d = moment(dateStr, 'YYYY-MM-DD', true)
+    if (!d.isValid()) {
+      return res.status(400).json({ status: 0, msg: 'Invalid date format. Use YYYY-MM-DD.' })
     }
 
-    return res.status(200).json({
-      status: 1,
-      data: sechdule
-    });
+    const startOfDay = d.startOf('day').toDate()
+    const endOfDay = moment(dateStr, 'YYYY-MM-DD').endOf('day').toDate()
+
+    const schedules = await Sechdule_Model.find({
+      doctor: doctorId,
+      date: { $gte: startOfDay, $lte: endOfDay }
+    }).sort({ startTime: 1 })
+
+    if (!schedules || schedules.length === 0) {
+      return res.status(404).json({ status: 0, msg: 'No schedules found for this date' })
+    }
+
+    return res.status(200).json({ status: 1, data: schedules })
 
   } catch (error) {
-    return res.status(500).json({
-      status: 0,
-      msg: "Server error",
-      error: error.message
-    });
+    return res.status(500).json({ status: 0, msg: 'Server error', error: error.message })
   }
-};
+}
 
-
-const Delete_Sechdule = async function (req, res) {
+// DELETE /Delete_Sechdule/:id  — deletes by _id, no change needed
+const Delete_Sechdule = async (req, res) => {
   try {
-    const sechduleId = req.params.id;
-    const doctorId = req.doctorId;
-    console.log(doctorId)
+    const sechduleId = req.params.id
+    const doctorId = req.doctorId
 
     const sechdule = await Sechdule_Model.findOneAndDelete({
       _id: sechduleId,
       doctor: doctorId
-    });
+    })
 
     if (!sechdule) {
-      return res.status(404).json({
-        status: 0,
-        msg: "Sechdule not found or unauthorized"
-      });
+      return res.status(404).json({ status: 0, msg: 'Schedule not found or unauthorized' })
     }
 
-    return res.status(200).json({
-      status: 1,
-      msg: "Sechdule deleted successfully"
-    });
+    return res.status(200).json({ status: 1, msg: 'Schedule deleted successfully' })
 
   } catch (error) {
-    return res.status(500).json({
-      status: 0,
-      msg: "Server error",
-      error: error.message
-    });
+    return res.status(500).json({ status: 0, msg: 'Server error', error: error.message })
   }
-};
+}
 
-
-const Show_Sechdule_Status = async function (req, res) {
+// GET /Show_Sechdule_Status/:status  — no change needed
+const Show_Sechdule_Status = async (req, res) => {
   try {
-    const status = req.params.status;
-    const doctorId = req.doctorId;
-    console.log(status)
-    console.log(doctorId)
+    const status = req.params.status
+    const doctorId = req.doctorId
 
-    const sechdule = await Sechdule_Model.find({
-      status: status,
-      doctor: doctorId
-    });
+    const sechdule = await Sechdule_Model.find({ status, doctor: doctorId })
 
     if (!sechdule || sechdule.length === 0) {
-      return res.status(404).json({
-        status: 0,
-        msg: "No sechdule found for this status"
-      });
+      return res.status(404).json({ status: 0, msg: 'No schedules found for this status' })
     }
 
-    return res.status(200).json({
-      status: 1,
-      data: sechdule
-    });
+    return res.status(200).json({ status: 1, data: sechdule })
 
   } catch (error) {
-    return res.status(500).json({
-      status: 0,
-      msg: "Server error",
-      error: error.message
-    });
+    return res.status(500).json({ status: 0, msg: 'Server error', error: error.message })
   }
-};
+}
 
-
-
-
-module.exports = {Add_Sechdule, Show_Doctor_Sechdule, Show_Doctor_Sechdule_Day, Delete_Sechdule, Show_Sechdule_Status};
+module.exports = { Add_Sechdule, Show_Doctor_Sechdule, Show_Doctor_Sechdule_Day, Delete_Sechdule, Show_Sechdule_Status }

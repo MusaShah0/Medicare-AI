@@ -4,280 +4,330 @@ import axios from 'axios';
 
 const PLACEHOLDER_IMG = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Crect fill='%23e2e8f0' width='150' height='150'/%3E%3Ctext fill='%2364748b' font-family='sans-serif' font-size='16' dy='5' font-weight='bold' x='50%25' y='50%25' text-anchor='middle'%3EDoctor%3C/text%3E%3C/svg%3E";
 
+// "14:30" → "2:30 PM"
+const formatTime = (t) => {
+  if (!t) return 'N/A';
+  const [h, m] = t.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  return `${h % 12 || 12}:${m.toString().padStart(2, '0')} ${ampm}`;
+};
+
+// "2025-07-14" → "Mon, Jul 14, 2025"
+const formatDateLabel = (dateStr) =>
+  new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+
 const BookAppointment = () => {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  // We get the doctor object passed from the FindDoctors page
   const doctor = location.state?.doctor;
 
-  const [schedules, setSchedules] = useState([]);
+  // grouped: { "2025-07-14": [{_id, startTime, endTime, clinic_fee, slotDuration}] }
+  const [grouped, setGrouped] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // --- STATES FOR BOOKING ---
+  const [expandedDate, setExpandedDate] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [isBooking, setIsBooking] = useState(false);
+  const [bookingError, setBookingError] = useState(null); // { type: 'conflict'|'unavailable'|'generic', slotId }
 
-  // Helper: Image
-  const getImageUrl = (path) => (!path ? PLACEHOLDER_IMG : (path.startsWith("data:") || path.startsWith("http")) ? path : `http://localhost:4000${path}`);
+  const getImageUrl = (path) =>
+    !path ? PLACEHOLDER_IMG
+    : (path.startsWith('data:') || path.startsWith('http')) ? path
+    : `http://localhost:4000/pictures/${path}`;
 
-  // Helper: Time Formatter
-  const formatTime = (timeString) => {
-    if (!timeString) return "N/A";
-    const [h, m] = timeString.split(':');
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    return `${h % 12 || 12}:${m} ${ampm}`;
-  };
-
-  // Helper: Day Sorter
-  const dayOrder = { "Monday": 1, "Tuesday": 2, "Wednesday": 3, "Thursday": 4, "Friday": 5, "Saturday": 6, "Sunday": 7 };
-
-  // 1. Fetch Schedule
-  useEffect(() => {
-    const fetchSchedule = async () => {
+  const fetchSlots = async () => {
       try {
         const res = await axios.get(`http://localhost:4000/Show_Appoitment_Sechdule/${id}`);
-        if (res.data.status === 1 && Array.isArray(res.data.data)) {
-            setSchedules(res.data.data);
-        } else {
-            setSchedules([]);
+        if (res.data.status === 1) {
+          setGrouped(res.data.data);
+          const firstDate = Object.keys(res.data.data).sort()[0];
+          if (firstDate) setExpandedDate(firstDate);
         }
       } catch (err) {
-        if (err.response?.status !== 404) setError("Unable to load appointment slots.");
+        if (err.response?.status !== 404) setError('Unable to load appointment slots.');
       } finally {
         setLoading(false);
       }
     };
-    if (id) fetchSchedule();
+
+  useEffect(() => {
+    if (!id) return;
+    fetchSlots();
   }, [id]);
 
-  // 2. HANDLE BOOKING 
   const handleConfirmBooking = async () => {
     if (!selectedSlot) return;
     setIsBooking(true);
+    setBookingError(null);
     try {
-        const response = await axios.post(
-            `http://localhost:4000/Book_Appointment/${selectedSlot._id}`, 
-            {}, 
-            { withCredentials: true } 
-        );
-
-        if (response.data.status === 1) {
-            setSchedules(prev => prev.filter(slot => slot._id !== selectedSlot._id));
-            setSelectedSlot(null);
-            alert("Appointment Booked Successfully!"); 
-            // Optional: Redirect to My Appointments page after booking
-            // navigate('/my-appointments');
-        } 
+      const response = await axios.post(
+        `http://localhost:4000/Book_Appointment/${selectedSlot._id}`,
+        {},
+        { withCredentials: true }
+      );
+      if (response.data.success) {
+        // Remove booked slot from UI
+        setGrouped(prev => {
+          const updated = { ...prev };
+          updated[selectedSlot._dateKey] = updated[selectedSlot._dateKey].filter(
+            s => s._id !== selectedSlot._id
+          );
+          if (updated[selectedSlot._dateKey].length === 0) delete updated[selectedSlot._dateKey];
+          return updated;
+        });
+        setSelectedSlot(null);
+        // Navigate to my appointments after short delay
+        setTimeout(() => navigate('/my-appointments'), 1500);
+      }
     } catch (err) {
-        if (err.response?.status === 401) {
-            navigate('/patient/login');
-        } else {
-            const msg = err.response?.data?.msg || "Booking failed. Please try again.";
-            alert(msg);
-        }
+      const status = err.response?.status;
+      if (err.response?.status === 401) {
+        navigate('/patient/login');
+        return;
+      }
+      if (status === 409) {
+        setBookingError({ type: 'conflict', slotId: selectedSlot._id });
+      } else if (status === 400) {
+        setBookingError({ type: 'unavailable', slotId: selectedSlot._id });
+        // Slot was taken — refresh the list
+        setSelectedSlot(null);
+        setLoading(true);
+        fetchSlots();
+      } else {
+        setBookingError({ type: 'generic', slotId: selectedSlot._id });
+      }
     } finally {
-        setIsBooking(false);
+      setIsBooking(false);
     }
   };
 
-  // --- GROUPING LOGIC ---
-  const groupedSchedules = schedules.reduce((acc, slot) => {
-    const dayKey = slot.day || "Available Slots"; 
-    if (!acc[dayKey]) acc[dayKey] = [];
-    acc[dayKey].push(slot);
-    return acc;
-  }, {});
-
-  const sortedDays = Object.keys(groupedSchedules).sort((a, b) => {
-    return (dayOrder[a] || 8) - (dayOrder[b] || 8);
-  });
+  const sortedDates = Object.keys(grouped).sort();
+  const hasSlots = sortedDates.length > 0;
 
   if (!doctor) return (
     <div className="min-h-screen flex flex-col items-center justify-center p-10 text-center bg-slate-50">
-        <h2 className="text-xl font-bold text-slate-700 mb-2">No doctor selected</h2>
-        <p className="text-slate-500 mb-6">Please select a doctor from the list first.</p>
-        <button onClick={() => navigate('/doctors')} className="px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition">
-            Go to Find Doctors
-        </button>
+      <h2 className="text-xl font-bold text-slate-700 mb-2">No doctor selected</h2>
+      <p className="text-slate-500 mb-6">Please select a doctor from the list first.</p>
+      <button onClick={() => navigate('/doctors')} className="px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition">
+        Go to Find Doctors
+      </button>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 relative font-sans">
-      
-      {/* --- BACKGROUND HEADER --- */}
-      <div className="h-64 bg-teal-700 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-teal-600 rounded-full blur-3xl opacity-50 -mr-20 -mt-20"></div>
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500 rounded-full blur-3xl opacity-30 -ml-10 -mb-10"></div>
-        
-        {/* Navigation Breadcrumb */}
+    <div className="min-h-screen bg-slate-50 font-sans">
+
+      {/* Header Banner */}
+      <div className="h-56 bg-teal-700 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-teal-600 rounded-full blur-3xl opacity-50 -mr-20 -mt-20" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500 rounded-full blur-3xl opacity-30 -ml-10 -mb-10" />
         <div className="relative z-10 max-w-6xl mx-auto p-6">
-            <button onClick={() => navigate(-1)} className="text-teal-100 hover:text-white flex items-center gap-2 transition-colors font-medium">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-                Back to List
-            </button>
+          <button onClick={() => navigate(-1)} className="text-teal-100 hover:text-white flex items-center gap-2 transition-colors font-medium">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to List
+          </button>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 pb-12 -mt-32 relative z-20">
+      <div className="max-w-6xl mx-auto px-6 pb-12 -mt-28 relative z-20">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            
-            {/* --- LEFT: DOCTOR PROFILE CARD --- */}
-            <div className="md:col-span-1">
-                <div className="bg-white rounded-2xl shadow-xl p-6 flex flex-col items-center text-center border border-slate-100 sticky top-6">
-                    {/* Fixed Image Style */}
-                    <img 
-                        src={getImageUrl(doctor.profile_Picture)} 
-                        alt={doctor.first_Name} 
-                        className="w-32 h-32 rounded-full object-cover object-center border-[5px] border-white shadow-lg -mt-20 bg-white" 
-                        onError={(e) => { e.target.onerror = null; e.target.src = PLACEHOLDER_IMG; }} 
-                    />
-                    
-                    <div className="mt-4">
-                        <h1 className="text-2xl font-bold text-slate-800">Dr. {doctor.first_Name} {doctor.last_Name}</h1>
-                        <p className="text-teal-600 font-semibold uppercase tracking-wide text-sm mt-1">{doctor.speciality}</p>
-                    </div>
 
-                    <div className="w-full mt-6 pt-6 border-t border-slate-100 space-y-3">
-                        <div className="flex items-center justify-between text-sm text-slate-600">
-                            <span>Experience</span>
-                            <span className="font-bold text-slate-800">10+ Years</span>
-                        </div>
-                        <div className="flex items-center justify-between text-sm text-slate-600">
-                            <span>Patients</span>
-                            <span className="font-bold text-slate-800">1.2k+</span>
-                        </div>
-                        <div className="bg-teal-50 p-3 rounded-xl mt-4">
-                            <p className="text-xs text-teal-800 font-medium">
-                                "Highly recommended by patients for {doctor.speciality} treatments."
-                            </p>
-                        </div>
-                    </div>
+          {/* Doctor Card */}
+          <div className="md:col-span-1">
+            <div className="bg-white rounded-2xl shadow-xl p-6 flex flex-col items-center text-center border border-slate-100 sticky top-6">
+              <img
+                src={getImageUrl(doctor.profile_Picture)}
+                alt={doctor.first_Name}
+                className="w-28 h-28 rounded-full object-cover border-4 border-white shadow-lg -mt-16 bg-white"
+                onError={e => { e.target.onerror = null; e.target.src = PLACEHOLDER_IMG; }}
+              />
+              <div className="mt-4">
+                <h1 className="text-xl font-bold text-slate-800">Dr. {doctor.first_Name} {doctor.last_Name}</h1>
+                <p className="text-teal-600 font-semibold uppercase tracking-wide text-sm mt-1">{doctor.speciality}</p>
+              </div>
+              <div className="w-full mt-5 pt-5 border-t border-slate-100 space-y-2 text-sm text-slate-600">
+                <div className="flex justify-between">
+                  <span>Speciality</span>
+                  <span className="font-bold text-slate-800">{doctor.speciality}</span>
                 </div>
-            </div>
-
-            {/* --- RIGHT: SCHEDULE SLOTS --- */}
-            <div className="md:col-span-2">
-                <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 border border-slate-100 min-h-[500px]">
-                    <div className="mb-6">
-                        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                            <span className="text-2xl">📅</span> Available Slots
-                        </h2>
-                        <p className="text-slate-400 text-sm mt-1 ml-9">Select a time to book your appointment.</p>
-                    </div>
-
-                    {loading ? (
-                        <div className="flex flex-col items-center justify-center h-64 text-slate-400 gap-3">
-                            <div className="w-8 h-8 border-4 border-teal-200 border-t-teal-600 rounded-full animate-spin"></div>
-                            Loading schedule...
-                        </div>
-                    ) : error ? (
-                        <div className="p-4 bg-red-50 text-red-600 rounded-xl text-center border border-red-100">{error}</div>
-                    ) : schedules.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-64 text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl">
-                            <svg className="w-12 h-12 mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            <p>No slots available right now.</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-8">
-                            {sortedDays.map((dayName) => {
-                                const dailyFee = groupedSchedules[dayName][0]?.clinic_fee || 0;
-                                return (
-                                <div key={dayName} className="relative pl-6 border-l-2 border-slate-100">
-                                    {/* Timeline Dot */}
-                                    <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-teal-100 border-2 border-teal-500"></div>
-
-                                    {/* Day Header */}
-                                    <div className="flex flex-wrap items-center justify-between mb-4">
-                                        <h3 className="text-lg font-bold text-slate-700">{dayName}</h3>
-                                        <span className="text-xs font-bold text-teal-700 bg-teal-50 px-3 py-1 rounded-full border border-teal-100">
-                                            Consultation Fee: ${dailyFee}
-                                        </span>
-                                    </div>
-                                    
-                                    {/* Slots Grid */}
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                                        {groupedSchedules[dayName]
-                                            .sort((a, b) => new Date('1970/01/01 ' + a.startTime) - new Date('1970/01/01 ' + b.startTime)) 
-                                            .map((slot) => (
-                                            <button 
-                                                key={slot._id}
-                                                onClick={() => setSelectedSlot(slot)}
-                                                className="group relative py-2.5 px-2 rounded-xl border border-slate-200 bg-white hover:border-teal-500 hover:shadow-md transition-all duration-200 text-sm font-medium text-slate-600 hover:text-teal-600 overflow-hidden"
-                                            >
-                                                <span className="relative z-10">{formatTime(slot.startTime)}</span>
-                                                <div className="absolute inset-0 bg-teal-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )})}
-                        </div>
-                    )}
+                <div className="flex justify-between">
+                  <span>Available Dates</span>
+                  <span className="font-bold text-teal-600">{sortedDates.length}</span>
                 </div>
+              </div>
             </div>
+          </div>
+
+          {/* Slots Panel */}
+          <div className="md:col-span-2">
+            <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 border border-slate-100 min-h-[480px]">
+              <div className="mb-6">
+                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  <span className="text-2xl">📅</span> Available Slots
+                </h2>
+                <p className="text-slate-400 text-sm mt-1 ml-9">Select a date, then pick a time slot.</p>
+              </div>
+
+              {loading ? (
+                <div className="flex flex-col items-center justify-center h-64 text-slate-400 gap-3">
+                  <div className="w-8 h-8 border-4 border-teal-200 border-t-teal-600 rounded-full animate-spin" />
+                  Loading schedule...
+                </div>
+              ) : error ? (
+                <div className="p-4 bg-red-50 text-red-600 rounded-xl text-center border border-red-100">{error}</div>
+              ) : !hasSlots ? (
+                <div className="flex flex-col items-center justify-center h-64 text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl">
+                  <svg className="w-12 h-12 mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p>No slots available right now.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {sortedDates.map(dateKey => {
+                    const isOpen = expandedDate === dateKey;
+                    const slots = grouped[dateKey];
+                    const fee = slots[0]?.clinic_fee || 0;
+
+                    return (
+                      <div key={dateKey} className="border border-slate-200 rounded-xl overflow-hidden">
+                        {/* Accordion Header */}
+                        <button
+                          onClick={() => setExpandedDate(isOpen ? null : dateKey)}
+                          className="w-full flex items-center justify-between px-5 py-4 bg-slate-50 hover:bg-slate-100 transition text-left"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-2 h-2 rounded-full ${isOpen ? 'bg-teal-500' : 'bg-slate-300'}`} />
+                            <div>
+                              <p className="font-bold text-slate-800 text-sm">{formatDateLabel(dateKey)}</p>
+                              <p className="text-xs text-slate-400 mt-0.5">{slots.length} slot{slots.length !== 1 ? 's' : ''} · Fee: ${fee}</p>
+                            </div>
+                          </div>
+                          <svg
+                            className={`w-5 h-5 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+
+                        {/* Accordion Body */}
+                        {isOpen && (
+                          <div className="px-5 py-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                            {slots
+                              .sort((a, b) => a.startTime.localeCompare(b.startTime))
+                              .map(slot => (
+                                <button
+                                  key={slot._id}
+                                  onClick={() => setSelectedSlot({ ...slot, _dateKey: dateKey })}
+                                  className="py-2.5 px-2 rounded-xl border border-slate-200 bg-white hover:border-teal-500 hover:bg-teal-50 hover:text-teal-700 hover:shadow-sm transition-all text-sm font-medium text-slate-600"
+                                >
+                                  {formatTime(slot.startTime)}
+                                </button>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
         </div>
       </div>
 
-      {/* --- CONFIRMATION MODAL --- */}
+      {/* Confirmation Modal */}
       {selectedSlot && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <div 
-                className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
-                onClick={() => setSelectedSlot(null)}
-            ></div>
-
-            {/* Modal Content */}
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 relative z-10 animate-fade-in-up">
-                <div className="text-center mb-6">
-                    <div className="w-16 h-16 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center text-2xl mx-auto mb-4">
-                        🗓️
-                    </div>
-                    <h3 className="text-2xl font-bold text-slate-800">Confirm Booking</h3>
-                    <p className="text-slate-500 mt-2">You are about to book an appointment.</p>
-                </div>
-
-                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 mb-6 space-y-3">
-                    <div className="flex justify-between border-b border-slate-200 pb-2">
-                        <span className="text-slate-500 text-sm">Doctor</span>
-                        <span className="font-semibold text-slate-800">Dr. {doctor.first_Name}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-200 pb-2">
-                        <span className="text-slate-500 text-sm">Day</span>
-                        <span className="font-semibold text-slate-800">{selectedSlot.day}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-200 pb-2">
-                        <span className="text-slate-500 text-sm">Time</span>
-                        <span className="font-semibold text-teal-600">{formatTime(selectedSlot.startTime)}</span>
-                    </div>
-                    <div className="flex justify-between pt-1">
-                        <span className="text-slate-500 text-sm">Fee</span>
-                        <span className="font-bold text-slate-800">${selectedSlot.clinic_fee || 0}</span>
-                    </div>
-                </div>
-
-                <div className="flex gap-4">
-                    <button 
-                        onClick={() => setSelectedSlot(null)} 
-                        disabled={isBooking} 
-                        className="flex-1 py-3.5 text-slate-600 font-bold hover:bg-slate-100 rounded-xl transition"
-                    >
-                        Cancel
-                    </button>
-                    <button 
-                        onClick={handleConfirmBooking} 
-                        disabled={isBooking} 
-                        className="flex-1 py-3.5 bg-gradient-to-r from-teal-600 to-teal-500 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-teal-500/30 transition transform hover:-translate-y-0.5 disabled:opacity-70 disabled:transform-none flex justify-center items-center"
-                    >
-                        {isBooking ? (
-                             <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                        ) : "Confirm Booking"}
-                    </button>
-                </div>
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => { setSelectedSlot(null); setBookingError(null); }} />
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 relative z-10">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center text-2xl mx-auto mb-4">🗓️</div>
+              <h3 className="text-2xl font-bold text-slate-800">Confirm Booking</h3>
+              <p className="text-slate-500 mt-2">You are about to book an appointment.</p>
             </div>
+
+            {/* Inline booking error */}
+            {bookingError && (
+              <div className="mb-5 p-4 rounded-xl border border-red-200 bg-red-50 flex items-start gap-3">
+                <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm text-red-700 font-medium">
+                  {bookingError.type === 'conflict'
+                    ? 'You already have an appointment that overlaps with this time slot on this date. Please choose a different time.'
+                    : bookingError.type === 'unavailable'
+                    ? 'This slot was just taken. Please select another available time.'
+                    : 'Booking failed. Please try again.'}
+                </p>
+              </div>
+            )}
+
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 mb-6 space-y-3">
+              <div className="flex justify-between border-b border-slate-200 pb-2">
+                <span className="text-slate-500 text-sm">Doctor</span>
+                <span className="font-semibold text-slate-800">Dr. {doctor.first_Name} {doctor.last_Name}</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-200 pb-2">
+                <span className="text-slate-500 text-sm">Date</span>
+                <span className="font-semibold text-slate-800">{formatDateLabel(selectedSlot._dateKey)}</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-200 pb-2">
+                <span className="text-slate-500 text-sm">Time</span>
+                <span className="font-semibold text-teal-600">{formatTime(selectedSlot.startTime)}</span>
+              </div>
+              <div className="flex justify-between pt-1">
+                <span className="text-slate-500 text-sm">Fee</span>
+                <span className="font-bold text-slate-800">${selectedSlot.clinic_fee || 0}</span>
+              </div>
+            </div>
+
+            {/* Success state */}
+            {bookingError === null && isBooking === false && selectedSlot && (
+              <div className="flex gap-4">
+                <button
+                  onClick={() => { setSelectedSlot(null); setBookingError(null); }}
+                  disabled={isBooking}
+                  className="flex-1 py-3.5 text-slate-600 font-bold hover:bg-slate-100 rounded-xl transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmBooking}
+                  disabled={isBooking || bookingError?.type === 'conflict'}
+                  className="flex-1 py-3.5 bg-gradient-to-r from-teal-600 to-teal-500 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-teal-500/30 transition transform hover:-translate-y-0.5 disabled:opacity-70 disabled:transform-none flex justify-center items-center"
+                >
+                  Confirm Booking
+                </button>
+              </div>
+            )}
+
+            {isBooking && (
+              <div className="flex justify-center py-2">
+                <svg className="animate-spin h-6 w-6 text-teal-600" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              </div>
+            )}
+
+            {/* After conflict — only show close/pick another */}
+            {bookingError && (
+              <button
+                onClick={() => { setSelectedSlot(null); setBookingError(null); }}
+                className="w-full mt-2 py-3 text-slate-600 font-bold hover:bg-slate-100 rounded-xl transition text-sm"
+              >
+                {bookingError.type === 'conflict' ? 'Choose a Different Time' : 'Close'}
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -105,24 +105,20 @@ const P_LoginIn = async (req, res) => {
 };
 const logout = (req, res, next) => {
   try {
-    // Clear the token cookie
-    // IMPORTANT: The options (httpOnly, secure, sameSite) must match 
-    // exactly how you set the cookie during login.
     res.clearCookie("token", {
       withCredentials: true,
       httpOnly: true,
-      // secure: true, // Uncomment if using HTTPS
-      // sameSite: "none", // Uncomment if using HTTPS/Cross-site
     });
-
-    return res.status(200).json({ 
-      status: 1, 
-      message: "Logged out successfully" 
-    });
+    return res.status(200).json({ status: 1, message: "Logged out successfully" });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ status: 0, message: "Logout failed" });
   }
 };
-module.exports={P_SignUp,P_LoginIn, logout}
+
+const verifyPatient = (req, res) => {
+  return res.status(200).json({ status: 1, authenticated: true, id: req.PatientId });
+};
+
+module.exports={P_SignUp,P_LoginIn, logout, verifyPatient}
 

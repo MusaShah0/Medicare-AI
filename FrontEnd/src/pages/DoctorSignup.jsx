@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-// 👇 1. Receive setRole from App.jsx
-const DoctorSignup = ({ setRole }) => {
+// setRole no longer needed — auth is verified via cookie
+const DoctorSignup = () => {
   // --- CONFIGURATION ---
   const API_URL = 'http://localhost:4000/D_SignUp';
   const navigate = useNavigate();
@@ -83,18 +83,9 @@ const DoctorSignup = ({ setRole }) => {
 
       if (response.data.success) {
         setMessage({ type: 'success', text: 'Registration Successful! Entering Dashboard...' });
-        
-        // 👇 3. Update Global State & Navigate immediately
-        if(response.data.login) {
-            setRole('doctor');
-            localStorage.setItem('doctorName', formData.first_Name);
-            localStorage.setItem('doctorSpeciality', formData.speciality);
-            
-            setTimeout(() => navigate('/doctor-dashboard'), 1500); // Go to Dashboard
-        } else {
-            // Fallback if login flag missing
-            setTimeout(() => navigate('/login'), 2000);
-        }
+        localStorage.setItem('doctorName', formData.first_Name);
+        localStorage.setItem('doctorSpeciality', formData.speciality);
+        setTimeout(() => navigate('/doctor-dashboard'), 1000);
       }
 
     } catch (error) {
