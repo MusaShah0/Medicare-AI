@@ -4,28 +4,27 @@ const Sechdule_Model = require('../Models/sechdule.model')
 const Appoitment_Model = require('../Models/Appoitment.model')
 const { generateToken } = require('../utils/videoSDK')
 const autoCancel = require('../utils/autoCancel')
+const { cancelStaleAndFetchUpcoming, incrementDoctorCompletedCount, scheduleAutoComplete } = require('../utils/autoCancel')
 
 // GET /Show_Appoitment_Sechdule/:id  — :id = doctorId
-// Returns available future slots grouped by date
+// Cancels stale slots on the fly, returns only upcoming available ones grouped by date
 const Show_Appoitment_Sechdule = async (req, res) => {
   try {
     const doctorId = req.params.id
-    const todayMidnight = moment().startOf('day').toDate()
 
-    const slots = await Sechdule_Model.find({
-      doctor: doctorId,
-      status: 'available',
-      date: { $gte: todayMidnight }
-    }).sort({ date: 1, startTime: 1 })
+    const upcomingSlots = await cancelStaleAndFetchUpcoming({ doctor: doctorId, status: 'available' })
 
-    if (!slots || slots.length === 0) {
+    // cancelStaleAndFetchUpcoming returns available+booked+ongoing — filter to available only for patient view
+    const availableSlots = upcomingSlots.filter(s => s.status === 'available')
+
+    if (!availableSlots || availableSlots.length === 0) {
       return res.status(404).json({ status: 0, msg: 'No available slots found' })
     }
 
     // Group by date string (YYYY-MM-DD)
     const grouped = {}
-    for (const slot of slots) {
-      const key = moment(slot.date).format('YYYY-MM-DD')
+    for (const slot of availableSlots) {
+      const key = moment.utc(slot.date).format('YYYY-MM-DD')
       if (!grouped[key]) grouped[key] = []
       grouped[key].push({
         _id: slot._id,
@@ -65,7 +64,7 @@ const Book_Appointment = async (req, res) => {
       return res.status(400).json({ success: false, message: 'This slot is no longer available' })
     }
 
-    // Step 2 — Fetch all active appointments for this patient
+    // Step 2 — Fetch all active appointments for this patient (with populated schedule)
     const existingAppointments = await Appoitment_Model.find({
       patient_id,
       status: { $in: ['booked', 'ongoing'] }
@@ -77,27 +76,34 @@ const Book_Appointment = async (req, res) => {
       return h * 60 + m
     }
 
-    const requestedDate = moment(schedule.date).startOf('day')
+    // Normalize to YYYY-MM-DD string using UTC to avoid timezone shifts
+    const toDateStr = (d) => moment.utc(d).format('YYYY-MM-DD')
+
+    const requestedDateStr = toDateStr(schedule.date)
     const requestedStart = toMinutes(schedule.startTime)
     const requestedEnd = toMinutes(schedule.endTime)
 
     const conflicting = existingAppointments.find(appt => {
-      if (!appt.sechdule_Id) return false
-      const existingDate = moment(appt.sechdule_Id.date).startOf('day')
-      if (!requestedDate.isSame(existingDate)) return false
+      const slot = appt.sechdule_Id
+      if (!slot || !slot.date || !slot.startTime || !slot.endTime) return false
 
-      const existingStart = toMinutes(appt.sechdule_Id.startTime)
-      const existingEnd = toMinutes(appt.sechdule_Id.endTime)
+      // Must be the same calendar date
+      if (toDateStr(slot.date) !== requestedDateStr) return false
 
-      // Overlap: not (requestedEnd <= existingStart || requestedStart >= existingEnd)
-      return !(requestedEnd <= existingStart || requestedStart >= existingEnd)
+      const existingStart = toMinutes(slot.startTime)
+      const existingEnd = toMinutes(slot.endTime)
+
+      // Overlap when intervals intersect (touching boundaries are NOT overlapping)
+      // e.g. existing 9:00–9:30 and new 9:30–10:00 → no overlap (allowed)
+      return requestedStart < existingEnd && requestedEnd > existingStart
     })
 
     // Step 4 — Reject if overlap found
     if (conflicting) {
+      const slot = conflicting.sechdule_Id
       return res.status(409).json({
         success: false,
-        message: 'You already have an appointment on this date that overlaps with this time slot'
+        message: `You already have an appointment on this date from ${slot.startTime} to ${slot.endTime}. Please choose a slot after ${slot.endTime}.`
       })
     }
 
@@ -143,7 +149,10 @@ const My_Appointments = async (req, res) => {
 
     const updatedAppointments = await Appoitment_Model.find({
       patient_id,
-      status: { $in: ['booked', 'ongoing'] }
+      $or: [
+        { status: { $in: ['booked', 'ongoing'] } },
+        { status: 'cancelled', is_rescheduled_token: true }
+      ]
     })
       .populate('doctor_id', 'first_Name last_Name speciality')
       .populate('sechdule_Id')
@@ -262,10 +271,10 @@ const Validate_And_Join_Meeting = async (req, res) => {
 
     // Slot time has passed — mark completed immediately and block entry
     if (now.isAfter(endMoment)) {
-      // Mark both documents completed right now
       if (appointment.status !== 'completed') {
         appointment.status = 'completed'
         await appointment.save()
+        await incrementDoctorCompletedCount(appointment.doctor_id)
       }
       if (schedule.status !== 'completed') {
         schedule.status = 'completed'
@@ -285,26 +294,10 @@ const Validate_And_Join_Meeting = async (req, res) => {
     const remainingMs = endMoment.diff(now)
     const remainingSecs = Math.floor(remainingMs / 1000)
 
-    // ── Schedule auto-complete for BOTH documents at exact end time ────────
-    // Use the absolute end timestamp so even if this fires slightly late it's correct
-    const msUntilEnd = endMoment.diff(moment())
-    setTimeout(async () => {
-      try {
-        const apt = await Appoitment_Model.findById(appointment._id)
-        if (apt && apt.status === 'ongoing') {
-          apt.status = 'completed'
-          await apt.save()
-        }
-        const sch = await Sechdule_Model.findById(schedule._id)
-        if (sch && sch.status === 'ongoing') {
-          sch.status = 'completed'
-          await sch.save()
-        }
-        console.log(`Appointment ${appointment._id} auto-completed at slot end`)
-      } catch (err) {
-        console.error('Auto-complete error:', err)
-      }
-    }, msUntilEnd)
+    // ── Register auto-complete timer — idempotent, fires only once per appointment ──
+    // scheduleAutoComplete ignores duplicate calls for the same appointmentId,
+    // so it's safe that both doctor and patient each trigger this on join.
+    scheduleAutoComplete(appointment._id, appointment.doctor_id, remainingMs)
 
     // ── Participant name ───────────────────────────────────────────────────
     const participantName = req.userRole === 'doctor'
@@ -320,6 +313,7 @@ const Validate_And_Join_Meeting = async (req, res) => {
       doctorName: `Dr. ${appointment.doctor_id.first_Name} ${appointment.doctor_id.last_Name}`,
       patientName: `${appointment.patient_id.first_Name} ${appointment.patient_id.last_Name}`,
       userRole: req.userRole,
+      appointmentId: appointment._id,
       validUntil: endMoment.toDate(),
       remainingTime: remainingSecs
     })
@@ -330,11 +324,162 @@ const Validate_And_Join_Meeting = async (req, res) => {
   }
 }
 
+// POST /Reschedule_Appointment/:appointmentId  — Doctor only
+// Cancels a booked appointment and issues a free rebook token to the patient
+const Reschedule_Appointment = async (req, res) => {
+  try {
+    const doctorId = req.doctorId
+    const { appointmentId } = req.params
+
+    const appointment = await Appoitment_Model.findOne({
+      _id: appointmentId,
+      doctor_id: doctorId,
+      status: 'booked'
+    }).populate('sechdule_Id')
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booked appointment not found or you are not authorized'
+      })
+    }
+
+    // Keep the schedule slot as 'booked' so it stays locked —
+    // only the token-holding patient can redeem it via Redeem_Reschedule
+    // (Redeem_Reschedule will mark it 'booked' for the new appointment)
+
+    // Cancel the appointment and mark it as having an active reschedule token
+    appointment.status = 'cancelled'
+    appointment.is_rescheduled_token = true
+    await appointment.save()
+
+    return res.status(200).json({
+      success: true,
+      message: 'Appointment cancelled. Patient can now rebook any of your available slots for free.',
+      appointmentId: appointment._id
+    })
+
+  } catch (error) {
+    console.error('Reschedule_Appointment Error:', error)
+    return res.status(500).json({ success: false, message: 'Server error', error: error.message })
+  }
+}
+
+// POST /Redeem_Reschedule/:appointmentId/:scheduleId  — Patient only
+// Patient uses their reschedule token to book a new slot for free
+// :appointmentId = the original cancelled appointment that has is_rescheduled_token: true
+// :scheduleId    = the new slot the patient wants to book
+const Redeem_Reschedule = async (req, res) => {
+  try {
+    const patient_id = req.PatientId
+    const { appointmentId, scheduleId } = req.params
+
+    // Verify the token appointment belongs to this patient and is valid
+    const originalAppointment = await Appoitment_Model.findOne({
+      _id: appointmentId,
+      patient_id,
+      status: 'cancelled',
+      is_rescheduled_token: true
+    })
+
+    if (!originalAppointment) {
+      return res.status(404).json({
+        success: false,
+        message: 'No valid reschedule token found for this appointment'
+      })
+    }
+
+    // The new slot must belong to the same doctor
+    const newSchedule = await Sechdule_Model.findOne({
+      _id: scheduleId,
+      doctor: originalAppointment.doctor_id,
+      status: 'available'
+    })
+
+    if (!newSchedule) {
+      return res.status(404).json({
+        success: false,
+        message: 'Selected slot is not available or does not belong to the same doctor'
+      })
+    }
+
+    // Check patient has no overlapping appointment on the new slot's date/time
+    const toMinutes = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m }
+    const toDateStr = (d) => moment.utc(d).format('YYYY-MM-DD')
+
+    const existingAppointments = await Appoitment_Model.find({
+      patient_id,
+      status: { $in: ['booked', 'ongoing'] }
+    }).populate('sechdule_Id')
+
+    const requestedDateStr = toDateStr(newSchedule.date)
+    const requestedStart = toMinutes(newSchedule.startTime)
+    const requestedEnd = toMinutes(newSchedule.endTime)
+
+    const conflicting = existingAppointments.find(appt => {
+      const slot = appt.sechdule_Id
+      if (!slot || !slot.date || !slot.startTime || !slot.endTime) return false
+      if (toDateStr(slot.date) !== requestedDateStr) return false
+      const existingStart = toMinutes(slot.startTime)
+      const existingEnd = toMinutes(slot.endTime)
+      return requestedStart < existingEnd && requestedEnd > existingStart
+    })
+
+    if (conflicting) {
+      const slot = conflicting.sechdule_Id
+      return res.status(409).json({
+        success: false,
+        message: `You already have an appointment on this date from ${slot.startTime} to ${slot.endTime}. Please choose a slot after ${slot.endTime}.`
+      })
+    }
+
+    // Create the new appointment — no payment needed, linked to original
+    const token = generateToken()
+    const roomResponse = await axios.post('https://api.videosdk.live/v2/rooms', {}, {
+      headers: { Authorization: token }
+    })
+    const validMeetingId = roomResponse.data.roomId
+
+    const newAppointment = new Appoitment_Model({
+      patient_id,
+      doctor_id: originalAppointment.doctor_id,
+      sechdule_Id: scheduleId,
+      status: 'booked',
+      meeting_id: validMeetingId,
+      rescheduled_from: originalAppointment._id
+    })
+    await newAppointment.save()
+
+    // Mark the new slot as booked
+    newSchedule.status = 'booked'
+    await newSchedule.save()
+
+    // Free the original locked slot back to available so the doctor can offer it to others
+    await Sechdule_Model.findByIdAndUpdate(originalAppointment.sechdule_Id, { status: 'available' })
+
+    // Consume the token so it can't be reused
+    originalAppointment.is_rescheduled_token = false
+    await originalAppointment.save()
+
+    return res.status(201).json({
+      success: true,
+      message: 'Appointment rescheduled successfully. No payment required.',
+      data: newAppointment
+    })
+
+  } catch (error) {
+    console.error('Redeem_Reschedule Error:', error)
+    return res.status(500).json({ success: false, message: 'Server error', error: error.message })
+  }
+}
+
 module.exports = {
   Show_Appoitment_Sechdule,
   Book_Appointment,
   My_Appointments,
   Doctor_Appointments,
   Get_Video_Token,
-  Validate_And_Join_Meeting
+  Validate_And_Join_Meeting,
+  Reschedule_Appointment,
+  Redeem_Reschedule
 }

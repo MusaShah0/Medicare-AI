@@ -104,4 +104,40 @@ const Get_Doctor_Reviews = async (req, res) => {
   }
 }
 
-module.exports = { Submit_Review, Check_Review, Get_Doctor_Reviews }
+// GET /doctor/profile/:doctorId
+// Public — returns completed_appointments count + last 5 reviews for the booking page
+const Get_Doctor_Profile = async (req, res) => {
+  try {
+    const { doctorId } = req.params
+    const DoctorModel = require('../Models/Dooctor.model')
+
+    const doctor = await DoctorModel.findById(doctorId).select('completed_appointments')
+    if (!doctor) {
+      return res.status(404).json({ success: false, message: 'Doctor not found' })
+    }
+
+    const reviews = await ReviewModel
+      .find({ doctor_id: doctorId })
+      .populate('patient_id', 'first_Name last_Name')
+      .sort({ createdAt: -1 })
+      .limit(5)
+
+    const allRatings = await ReviewModel.find({ doctor_id: doctorId }).select('rating')
+    const avgRating = allRatings.length
+      ? (allRatings.reduce((sum, r) => sum + r.rating, 0) / allRatings.length).toFixed(1)
+      : null
+
+    return res.status(200).json({
+      success: true,
+      completed_appointments: doctor.completed_appointments,
+      avg_rating: avgRating,
+      total_reviews: allRatings.length,
+      reviews
+    })
+
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Server error', error: error.message })
+  }
+}
+
+module.exports = { Submit_Review, Check_Review, Get_Doctor_Reviews, Get_Doctor_Profile }

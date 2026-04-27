@@ -1,6 +1,7 @@
 const moment = require('moment')
 const Sechdule_Model = require('../Models/sechdule.model')
 const autoCancel = require('../utils/autoCancel')
+const { cancelStaleAndFetchUpcoming } = require('../utils/autoCancel')
 
 // POST /Add_Sechdule
 // Body: { dates: ["2025-07-14", "2025-07-16"], slots: [{startTime, endTime}], clinic_fee, slotDuration }
@@ -93,25 +94,12 @@ const Add_Sechdule = async (req, res) => {
 }
 
 // GET /Show_Doctor_Sechdule
-// Returns doctor's upcoming active slots, auto-cancels past ones, sorted by date then startTime
+// Cancels all stale slots on the fly, then returns only upcoming active ones
 const Show_Doctor_Sechdule = async (req, res) => {
   try {
     const doctorId = req.doctorId
 
-    // Fetch active slots to check for auto-cancel
-    const schedules = await Sechdule_Model.find({
-      doctor: doctorId,
-      status: { $in: ['available', 'booked'] }
-    })
-
-    // Auto-cancel past slots (pass as 'schedule' mode)
-    await autoCancel(schedules, 'schedule')
-
-    // Return only still-active slots, sorted
-    const activeSchedules = await Sechdule_Model.find({
-      doctor: doctorId,
-      status: { $in: ['available', 'booked'] }
-    }).sort({ date: 1, startTime: 1 })
+    const activeSchedules = await cancelStaleAndFetchUpcoming({ doctor: doctorId })
 
     if (!activeSchedules || activeSchedules.length === 0) {
       return res.status(404).json({ status: 0, msg: 'No upcoming schedules found' })

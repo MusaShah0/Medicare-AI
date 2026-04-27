@@ -31,6 +31,19 @@ const AppoitmentSechema = mongoose.Schema({
     default: null
   },
 
+  // Doctor triggered a reschedule — patient gets a free rebook token
+  is_rescheduled_token: {
+    type: Boolean,
+    default: false
+  },
+
+  // If this appointment was booked using a reschedule token, points to the original cancelled appointment
+  rescheduled_from: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Appoitment',
+    default: null
+  }
+
 }, { timestamps: true })
 
 const Appoitment_Model = mongoose.model('Appoitment', AppoitmentSechema)

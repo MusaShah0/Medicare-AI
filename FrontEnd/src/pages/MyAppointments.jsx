@@ -128,6 +128,14 @@ const MyAppointments = () => {
   const [reviewedIds, setReviewedIds] = useState(new Set()); // appointment _ids already reviewed
   const [activeReview, setActiveReview] = useState(null);   // appointment object to review
 
+  // Reschedule token state
+  const [redeemTarget, setRedeemTarget] = useState(null);   // cancelled appt with token
+  const [redeemSlots, setRedeemSlots] = useState({});       // grouped available slots from same doctor
+  const [redeemLoading, setRedeemLoading] = useState(false);
+  const [redeemExpandedDate, setRedeemExpandedDate] = useState(null);
+  const [redeemSelectedSlot, setRedeemSelectedSlot] = useState(null);
+  const [redeemMsg, setRedeemMsg] = useState(null); // { type: 'success'|'error', text }
+
   // Live clock — ticks every 30s
   useEffect(() => {
     const tick = setInterval(() => setNow(new Date()), 30000);
@@ -209,6 +217,54 @@ const MyAppointments = () => {
   const handleReviewSubmitted = (appointmentId) => {
     setReviewedIds(prev => new Set([...prev, appointmentId]));
     setActiveReview(null);
+  };
+
+  // Open the reschedule token modal and load available slots from the same doctor
+  const openRedeemModal = async (appointment) => {
+    setRedeemTarget(appointment);
+    setRedeemSlots({});
+    setRedeemSelectedSlot(null);
+    setRedeemExpandedDate(null);
+    setRedeemMsg(null);
+    setRedeemLoading(true);
+    try {
+      const res = await axios.get(`http://localhost:4000/Show_Appoitment_Sechdule/${appointment.doctor_id?._id || appointment.doctor_id}`);
+      if (res.data.status === 1) {
+        setRedeemSlots(res.data.data);
+        const firstDate = Object.keys(res.data.data).sort()[0];
+        if (firstDate) setRedeemExpandedDate(firstDate);
+      }
+    } catch {
+      setRedeemMsg({ type: 'error', text: 'Could not load available slots. Please try again.' });
+    } finally {
+      setRedeemLoading(false);
+    }
+  };
+
+  const handleRedeemReschedule = async () => {
+    if (!redeemTarget || !redeemSelectedSlot) return;
+    setRedeemLoading(true);
+    setRedeemMsg(null);
+    try {
+      const res = await axios.post(
+        `http://localhost:4000/Redeem_Reschedule/${redeemTarget._id}/${redeemSelectedSlot._id}`,
+        {},
+        { withCredentials: true }
+      );
+      if (res.data.success) {
+        setRedeemMsg({ type: 'success', text: 'Appointment rescheduled successfully! No payment required.' });
+        setTimeout(() => {
+          setRedeemTarget(null);
+          setRedeemSelectedSlot(null);
+          fetchAppointments(); // refresh the list
+        }, 1800);
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to redeem. Please try again.';
+      setRedeemMsg({ type: 'error', text: msg });
+    } finally {
+      setRedeemLoading(false);
+    }
   };
 
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center">Loading...</div>;
@@ -326,10 +382,19 @@ const MyAppointments = () => {
                         </button>
                       )
 
+                    ) : app.status === 'cancelled' && app.is_rescheduled_token ? (
+                      <button
+                        onClick={() => openRedeemModal(app)}
+                        className="text-sm font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1.5 transition bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg border border-teal-200"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Rebook Free
+                      </button>
                     ) : (
                       <span className="text-slate-400 text-sm font-medium capitalize">{app.status}</span>
-                    )}
-                  </div>
+                    )}                  </div>
 
                 </div>
               );
@@ -345,6 +410,135 @@ const MyAppointments = () => {
           onClose={() => setActiveReview(null)}
           onSubmitted={handleReviewSubmitted}
         />
+      )}
+
+      {/* ── Reschedule Token Redeem Modal ──────────────────────────────────── */}
+      {redeemTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => { if (!redeemLoading) { setRedeemTarget(null); setRedeemMsg(null); } }} />
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 z-10 max-h-[90vh] overflow-y-auto">
+
+            {/* Header */}
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">🎁</div>
+              <h3 className="text-xl font-bold text-slate-800">Rebook for Free</h3>
+              <p className="text-slate-500 text-sm mt-2">
+                Your doctor rescheduled your appointment. Pick any available slot from{' '}
+                <span className="font-semibold text-slate-700">
+                  Dr. {redeemTarget.doctor_id?.first_Name} {redeemTarget.doctor_id?.last_Name}
+                </span>{' '}
+                — no payment needed.
+              </p>
+            </div>
+
+            {redeemMsg && (
+              <div className={`mb-5 p-3 rounded-xl text-sm font-medium text-center ${redeemMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
+                {redeemMsg.text}
+              </div>
+            )}
+
+            {/* Slot picker */}
+            {redeemLoading && !redeemMsg ? (
+              <div className="flex justify-center py-10">
+                <div className="w-8 h-8 border-4 border-teal-200 border-t-teal-600 rounded-full animate-spin" />
+              </div>
+            ) : Object.keys(redeemSlots).length === 0 && !redeemMsg ? (
+              <div className="text-center py-8 text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl">
+                <p className="font-medium">No available slots right now.</p>
+                <p className="text-sm mt-1">Check back later or contact the doctor.</p>
+              </div>
+            ) : (
+              <div className="space-y-3 mb-6">
+                {Object.keys(redeemSlots).sort().map(dateKey => {
+                  const isOpen = redeemExpandedDate === dateKey;
+                  const slots = redeemSlots[dateKey];
+                  return (
+                    <div key={dateKey} className="border border-slate-200 rounded-xl overflow-hidden">
+                      <button
+                        onClick={() => setRedeemExpandedDate(isOpen ? null : dateKey)}
+                        className="w-full flex items-center justify-between px-5 py-4 bg-slate-50 hover:bg-slate-100 transition text-left"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-2 h-2 rounded-full ${isOpen ? 'bg-teal-500' : 'bg-slate-300'}`} />
+                          <div>
+                            <p className="font-bold text-slate-800 text-sm">
+                              {new Date(dateKey + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                            </p>
+                            <p className="text-xs text-slate-400 mt-0.5">{slots.length} slot{slots.length !== 1 ? 's' : ''} · Free</p>
+                          </div>
+                        </div>
+                        <svg className={`w-5 h-5 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      {isOpen && (
+                        <div className="px-5 py-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          {slots.sort((a, b) => a.startTime.localeCompare(b.startTime)).map(slot => {
+                            const isSelected = redeemSelectedSlot?._id === slot._id;
+                            const fmt = (t) => { if (!t) return ''; const [h, m] = t.split(':').map(Number); return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`; };
+                            return (
+                              <button
+                                key={slot._id}
+                                onClick={() => setRedeemSelectedSlot({ ...slot, _dateKey: dateKey })}
+                                className={`py-2.5 px-2 rounded-xl border text-sm font-medium transition-all ${isSelected ? 'border-teal-500 bg-teal-50 text-teal-700 shadow-sm' : 'border-slate-200 bg-white hover:border-teal-400 hover:bg-teal-50 hover:text-teal-700 text-slate-600'}`}
+                              >
+                                {fmt(slot.startTime)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Selected slot summary */}
+            {redeemSelectedSlot && (
+              <div className="bg-teal-50 border border-teal-200 rounded-2xl p-4 mb-6 text-sm space-y-1">
+                <p className="font-bold text-teal-800 mb-2">Selected Slot</p>
+                <div className="flex justify-between text-teal-700">
+                  <span>Date</span>
+                  <span className="font-semibold">{new Date(redeemSelectedSlot._dateKey + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                </div>
+                <div className="flex justify-between text-teal-700">
+                  <span>Time</span>
+                  <span className="font-semibold">
+                    {(() => { const fmt = (t) => { if (!t) return ''; const [h, m] = t.split(':').map(Number); return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`; }; return fmt(redeemSelectedSlot.startTime); })()}
+                  </span>
+                </div>
+                <div className="flex justify-between text-teal-700">
+                  <span>Fee</span>
+                  <span className="font-bold text-emerald-600">FREE</span>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setRedeemTarget(null); setRedeemMsg(null); setRedeemSelectedSlot(null); }}
+                disabled={redeemLoading}
+                className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition text-sm disabled:opacity-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleRedeemReschedule}
+                disabled={!redeemSelectedSlot || redeemLoading || redeemMsg?.type === 'success'}
+                className="flex-1 py-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm transition disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {redeemLoading ? (
+                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                ) : null}
+                Confirm Rebook
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

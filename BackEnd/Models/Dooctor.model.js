@@ -36,7 +36,11 @@ const DoctorSchema = mongoose.Schema({
     degrees: [{
         type: String,
         required: true
-    }]
+    }],
+    completed_appointments: {
+        type: Number,
+        default: 0
+    }
 }, { timestamps: true });
 
 // --- MIDDLEWARE ---

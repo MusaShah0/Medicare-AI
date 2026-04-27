@@ -18,6 +18,17 @@ const formatDateLabel = (dateStr) =>
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
 
+// Star display (read-only)
+const Stars = ({ rating }) => (
+  <div className="flex gap-0.5">
+    {[1, 2, 3, 4, 5].map(s => (
+      <svg key={s} className={`w-4 h-4 ${s <= Math.round(rating) ? 'text-amber-400' : 'text-slate-200'}`} fill="currentColor" viewBox="0 0 20 20">
+        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+      </svg>
+    ))}
+  </div>
+);
+
 const BookAppointment = () => {
   const { id } = useParams();
   const location = useLocation();
@@ -31,7 +42,10 @@ const BookAppointment = () => {
   const [expandedDate, setExpandedDate] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [isBooking, setIsBooking] = useState(false);
-  const [bookingError, setBookingError] = useState(null); // { type: 'conflict'|'unavailable'|'generic', slotId }
+  const [bookingError, setBookingError] = useState(null);
+
+  // Doctor profile stats + reviews
+  const [profile, setProfile] = useState(null);
 
   const getImageUrl = (path) =>
     !path ? PLACEHOLDER_IMG
@@ -39,23 +53,27 @@ const BookAppointment = () => {
     : `http://localhost:4000/pictures/${path}`;
 
   const fetchSlots = async () => {
-      try {
-        const res = await axios.get(`http://localhost:4000/Show_Appoitment_Sechdule/${id}`);
-        if (res.data.status === 1) {
-          setGrouped(res.data.data);
-          const firstDate = Object.keys(res.data.data).sort()[0];
-          if (firstDate) setExpandedDate(firstDate);
-        }
-      } catch (err) {
-        if (err.response?.status !== 404) setError('Unable to load appointment slots.');
-      } finally {
-        setLoading(false);
+    try {
+      const res = await axios.get(`http://localhost:4000/Show_Appoitment_Sechdule/${id}`);
+      if (res.data.status === 1) {
+        setGrouped(res.data.data);
+        const firstDate = Object.keys(res.data.data).sort()[0];
+        if (firstDate) setExpandedDate(firstDate);
       }
-    };
+    } catch (err) {
+      if (err.response?.status !== 404) setError('Unable to load appointment slots.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
     fetchSlots();
+    // Fetch doctor profile (completed count + last 5 reviews)
+    axios.get(`http://localhost:4000/doctor/profile/${id}`)
+      .then(res => { if (res.data.success) setProfile(res.data); })
+      .catch(() => {}); // non-critical, fail silently
   }, [id]);
 
   const handleConfirmBooking = async () => {
@@ -69,7 +87,6 @@ const BookAppointment = () => {
         { withCredentials: true }
       );
       if (response.data.success) {
-        // Remove booked slot from UI
         setGrouped(prev => {
           const updated = { ...prev };
           updated[selectedSlot._dateKey] = updated[selectedSlot._dateKey].filter(
@@ -79,20 +96,15 @@ const BookAppointment = () => {
           return updated;
         });
         setSelectedSlot(null);
-        // Navigate to my appointments after short delay
         setTimeout(() => navigate('/my-appointments'), 1500);
       }
     } catch (err) {
       const status = err.response?.status;
-      if (err.response?.status === 401) {
-        navigate('/patient/login');
-        return;
-      }
+      if (status === 401) { navigate('/patient/login'); return; }
       if (status === 409) {
         setBookingError({ type: 'conflict', slotId: selectedSlot._id });
       } else if (status === 400) {
         setBookingError({ type: 'unavailable', slotId: selectedSlot._id });
-        // Slot was taken — refresh the list
         setSelectedSlot(null);
         setLoading(true);
         fetchSlots();
@@ -137,9 +149,11 @@ const BookAppointment = () => {
       <div className="max-w-6xl mx-auto px-6 pb-12 -mt-28 relative z-20">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
 
-          {/* Doctor Card */}
-          <div className="md:col-span-1">
-            <div className="bg-white rounded-2xl shadow-xl p-6 flex flex-col items-center text-center border border-slate-100 sticky top-6">
+          {/* ── Doctor Card + Stats + Reviews ── */}
+          <div className="md:col-span-1 flex flex-col gap-5">
+
+            {/* Doctor info card */}
+            <div className="bg-white rounded-2xl shadow-xl p-6 flex flex-col items-center text-center border border-slate-100">
               <img
                 src={getImageUrl(doctor.profile_Picture)}
                 alt={doctor.first_Name}
@@ -150,7 +164,30 @@ const BookAppointment = () => {
                 <h1 className="text-xl font-bold text-slate-800">Dr. {doctor.first_Name} {doctor.last_Name}</h1>
                 <p className="text-teal-600 font-semibold uppercase tracking-wide text-sm mt-1">{doctor.speciality}</p>
               </div>
-              <div className="w-full mt-5 pt-5 border-t border-slate-100 space-y-2 text-sm text-slate-600">
+
+              {/* Stats row */}
+              <div className="w-full mt-5 pt-5 border-t border-slate-100 grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <p className="text-lg font-extrabold text-slate-800">
+                    {profile ? profile.completed_appointments : '—'}
+                  </p>
+                  <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide leading-tight mt-0.5">Completed</p>
+                </div>
+                <div>
+                  <p className="text-lg font-extrabold text-slate-800">
+                    {profile?.avg_rating ? profile.avg_rating : '—'}
+                  </p>
+                  <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide leading-tight mt-0.5">Avg Rating</p>
+                </div>
+                <div>
+                  <p className="text-lg font-extrabold text-slate-800">
+                    {profile ? profile.total_reviews : '—'}
+                  </p>
+                  <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide leading-tight mt-0.5">Reviews</p>
+                </div>
+              </div>
+
+              <div className="w-full mt-4 pt-4 border-t border-slate-100 space-y-2 text-sm text-slate-600">
                 <div className="flex justify-between">
                   <span>Speciality</span>
                   <span className="font-bold text-slate-800">{doctor.speciality}</span>
@@ -161,9 +198,46 @@ const BookAppointment = () => {
                 </div>
               </div>
             </div>
+
+            {/* Reviews section */}
+            {profile && profile.reviews && profile.reviews.length > 0 && (
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+                <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                  Patient Reviews
+                </h3>
+                <div className="space-y-4">
+                  {profile.reviews.map(r => (
+                    <div key={r._id} className="border-b border-slate-50 last:border-0 pb-4 last:pb-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-semibold text-slate-700">
+                          {r.patient_id?.first_Name} {r.patient_id?.last_Name}
+                        </span>
+                        <Stars rating={r.rating} />
+                      </div>
+                      {r.review && (
+                        <p className="text-xs text-slate-500 leading-relaxed">{r.review}</p>
+                      )}
+                      <p className="text-[10px] text-slate-300 mt-1">
+                        {new Date(r.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* No reviews yet */}
+            {profile && profile.reviews && profile.reviews.length === 0 && (
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 text-center">
+                <p className="text-slate-400 text-sm">No reviews yet for this doctor.</p>
+              </div>
+            )}
           </div>
 
-          {/* Slots Panel */}
+          {/* ── Slots Panel ── */}
           <div className="md:col-span-2">
             <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 border border-slate-100 min-h-[480px]">
               <div className="mb-6">
@@ -196,7 +270,6 @@ const BookAppointment = () => {
 
                     return (
                       <div key={dateKey} className="border border-slate-200 rounded-xl overflow-hidden">
-                        {/* Accordion Header */}
                         <button
                           onClick={() => setExpandedDate(isOpen ? null : dateKey)}
                           className="w-full flex items-center justify-between px-5 py-4 bg-slate-50 hover:bg-slate-100 transition text-left"
@@ -216,7 +289,6 @@ const BookAppointment = () => {
                           </svg>
                         </button>
 
-                        {/* Accordion Body */}
                         {isOpen && (
                           <div className="px-5 py-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                             {slots
@@ -254,7 +326,6 @@ const BookAppointment = () => {
               <p className="text-slate-500 mt-2">You are about to book an appointment.</p>
             </div>
 
-            {/* Inline booking error */}
             {bookingError && (
               <div className="mb-5 p-4 rounded-xl border border-red-200 bg-red-50 flex items-start gap-3">
                 <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -289,7 +360,6 @@ const BookAppointment = () => {
               </div>
             </div>
 
-            {/* Success state */}
             {bookingError === null && isBooking === false && selectedSlot && (
               <div className="flex gap-4">
                 <button
@@ -318,7 +388,6 @@ const BookAppointment = () => {
               </div>
             )}
 
-            {/* After conflict — only show close/pick another */}
             {bookingError && (
               <button
                 onClick={() => { setSelectedSlot(null); setBookingError(null); }}

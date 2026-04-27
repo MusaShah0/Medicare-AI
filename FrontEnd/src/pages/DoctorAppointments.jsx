@@ -7,6 +7,9 @@ const DoctorAppointments = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [now, setNow] = useState(new Date());
+  const [rescheduleTarget, setRescheduleTarget] = useState(null); // appointment to reschedule
+  const [rescheduleLoading, setRescheduleLoading] = useState(false);
+  const [rescheduleMsg, setRescheduleMsg] = useState(null); // { type: 'success'|'error', text }
 
   // Live clock — ticks every 30s so isJoinable stays accurate
   useEffect(() => {
@@ -73,9 +76,36 @@ const DoctorAppointments = () => {
     }
   };
 
+  const handleReschedule = async () => {
+    if (!rescheduleTarget) return;
+    setRescheduleLoading(true);
+    setRescheduleMsg(null);
+    try {
+      const res = await axios.post(
+        `http://localhost:4000/Reschedule_Appointment/${rescheduleTarget._id}`,
+        {},
+        { withCredentials: true }
+      );
+      if (res.data.success) {
+        setRescheduleMsg({ type: 'success', text: 'Appointment cancelled. The patient has been issued a free rebook token.' });
+        // Remove from list after short delay
+        setTimeout(() => {
+          setAppointments(prev => prev.filter(a => a._id !== rescheduleTarget._id));
+          setRescheduleTarget(null);
+          setRescheduleMsg(null);
+        }, 2000);
+      }
+    } catch (err) {
+      setRescheduleMsg({ type: 'error', text: err.response?.data?.message || 'Failed to reschedule. Please try again.' });
+    } finally {
+      setRescheduleLoading(false);
+    }
+  };
+
   if (loading) return <div className="min-h-screen flex items-center justify-center text-slate-500 font-medium">Loading appointments...</div>;
 
   return (
+    <>
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-6xl mx-auto">
         
@@ -156,19 +186,34 @@ const DoctorAppointments = () => {
                             <div className="bg-slate-50 p-4 border-t border-slate-100 flex justify-between items-center">
                                 <span className="text-xs text-slate-400">ID: {app._id.slice(-6).toUpperCase()}</span>
 
-                                {(app.status === 'booked' || app.status === 'ongoing') && isJoinable(slot) ? (
-                                    <Link
-                                        to={`/room/${app.meeting_id}`}
-                                        className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-md shadow-teal-200"
+                                <div className="flex items-center gap-2">
+                                  {/* Reschedule button — only for booked appointments */}
+                                  {app.status === 'booked' && (
+                                    <button
+                                      onClick={() => { setRescheduleTarget(app); setRescheduleMsg(null); }}
+                                      className="bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 transition-all"
                                     >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                                        Start Consult
-                                    </Link>
-                                ) : (app.status === 'booked' || app.status === 'ongoing') ? (
-                                    <span className="text-xs text-slate-400 font-medium">
-                                        {slot?.startTime ? `Starts at ${formatTime(slot.startTime)}` : 'Upcoming'}
-                                    </span>
-                                ) : null}
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                      </svg>
+                                      Reschedule
+                                    </button>
+                                  )}
+
+                                  {(app.status === 'booked' || app.status === 'ongoing') && isJoinable(slot) ? (
+                                      <Link
+                                          to={`/room/${app.meeting_id}`}
+                                          className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-md shadow-teal-200"
+                                      >
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                          Start Consult
+                                      </Link>
+                                  ) : (app.status === 'booked' || app.status === 'ongoing') ? (
+                                      <span className="text-xs text-slate-400 font-medium">
+                                          {slot?.startTime ? `Starts at ${formatTime(slot.startTime)}` : 'Upcoming'}
+                                      </span>
+                                  ) : null}
+                                </div>
                             </div>
                         </div>
                     );
@@ -177,6 +222,77 @@ const DoctorAppointments = () => {
         )}
       </div>
     </div>
+
+    {/* ── Reschedule Confirmation Modal ─────────────────────────────────── */}
+    {rescheduleTarget && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => { if (!rescheduleLoading) { setRescheduleTarget(null); setRescheduleMsg(null); } }} />
+        <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 z-10">
+
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">⚠️</div>
+            <h3 className="text-xl font-bold text-slate-800">Reschedule Appointment?</h3>
+            <p className="text-slate-500 text-sm mt-2">
+              This will cancel the appointment and give the patient a <span className="font-semibold text-teal-600">free rebook token</span> so they can pick another one of your available slots at no charge.
+            </p>
+          </div>
+
+          {/* Appointment summary */}
+          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 mb-6 space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-slate-400">Patient</span>
+              <span className="font-semibold text-slate-800">
+                {rescheduleTarget.patient_id?.first_Name} {rescheduleTarget.patient_id?.last_Name}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Date</span>
+              <span className="font-semibold text-slate-800">
+                {rescheduleTarget.sechdule_Id?.date
+                  ? new Date(rescheduleTarget.sechdule_Id.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+                  : 'N/A'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Time</span>
+              <span className="font-semibold text-slate-800">
+                {formatTime(rescheduleTarget.sechdule_Id?.startTime)} – {formatTime(rescheduleTarget.sechdule_Id?.endTime)}
+              </span>
+            </div>
+          </div>
+
+          {rescheduleMsg && (
+            <div className={`mb-5 p-3 rounded-xl text-sm font-medium text-center ${rescheduleMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
+              {rescheduleMsg.text}
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => { setRescheduleTarget(null); setRescheduleMsg(null); }}
+              disabled={rescheduleLoading}
+              className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition text-sm disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleReschedule}
+              disabled={rescheduleLoading || rescheduleMsg?.type === 'success'}
+              className="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm transition disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {rescheduleLoading ? (
+                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              ) : null}
+              Confirm Reschedule
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 };
 
