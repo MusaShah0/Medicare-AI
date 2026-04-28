@@ -34,14 +34,16 @@ const scheduleAutoComplete = (appointmentId, doctorId, msUntilEnd) => {
   if (_autoCompleteTimers.has(key)) return
 
   const handle = setTimeout(async () => {
-    _autoCompleteTimers.delete(key)
     try {
       const Appoitment_Model = require('../Models/Appoitment.model')
 
-      const apt = await Appoitment_Model.findById(appointmentId)
-      if (apt && apt.status === 'ongoing') {
-        apt.status = 'completed'
-        await apt.save()
+      // Atomic update: only complete if still 'ongoing' — prevents double-increment with End_Meeting_Early
+      const apt = await Appoitment_Model.findOneAndUpdate(
+        { _id: appointmentId, status: 'ongoing' },
+        { $set: { status: 'completed' } },
+        { new: true }
+      )
+      if (apt) {
         await incrementDoctorCompletedCount(doctorId)
 
         if (apt.meeting_id) {
@@ -68,6 +70,8 @@ const scheduleAutoComplete = (appointmentId, doctorId, msUntilEnd) => {
       console.log(`[Notes] Appointment ${key} auto-completed at slot end`)
     } catch (err) {
       console.error('Auto-complete error:', err)
+    } finally {
+      _autoCompleteTimers.delete(key)
     }
   }, msUntilEnd)
 

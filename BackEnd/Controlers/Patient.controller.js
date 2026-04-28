@@ -19,6 +19,14 @@ const P_SignUp = async (req, res) => {
     if (password.length < 8) {
       return res.status(400).json({ status: 0, msg: "Password must be at least 8 characters." });
     }
+    const ageNum = Number(age);
+    if (age === undefined || age === null || age === '' || isNaN(ageNum) || ageNum < 0 || ageNum > 120) {
+      return res.status(400).json({ status: 0, msg: "Please provide a valid age (0-120)." });
+    }
+    const validGenders = ['Male', 'Female', 'Other'];
+    if (!validGenders.includes(gender)) {
+      return res.status(400).json({ status: 0, msg: "Gender must be Male, Female, or Other." });
+    }
 
     const existingUser = await PatientModel.findOne({ email });
     if (existingUser) {
@@ -41,13 +49,19 @@ const P_SignUp = async (req, res) => {
     // 4. Save to Database (Middleware handles password hashing)
     await patient.save();
 
-    // 5. Generate Token (Optional: Many apps log the user in immediately after signup)
+    // 5. Auto-login: set httpOnly cookie so patient lands on dashboard
     const token = await patient.Generate_Token();
+    res.cookie('token', token, {
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production'
+    });
 
     return res.status(201).json({
       status: 1,
+      login: true,
+      role: 'patient',
       msg: "Signup successful",
-      token, // Returning token so the patient is logged in immediately
       data: {
         id: patient._id,
         first_Name: patient.first_Name
@@ -97,6 +111,8 @@ const P_LoginIn = async (req, res) => {
 
     return res.json({
         status: 1,
+        login: true,
+        role: 'patient',
         msg: "Login Successful",
         data: {
             _id: user._id,

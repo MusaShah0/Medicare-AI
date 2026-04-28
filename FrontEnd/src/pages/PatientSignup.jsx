@@ -31,11 +31,10 @@ const PatientSignup = () => {
 
     try {
       // NOTE: Ensure this endpoint matches your backend route exactly (e.g., /P_SignUp or /Patient_SignUp)
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/P_SignUp`, formData);
+      const response = await axios.post(`${import.meta.env.VITE_API_URL}/P_SignUp`, formData, { withCredentials: true });
 
       if (response.data.status === 1) {
-        // Redirect to Login on success so they can get the HTTP-Only cookie
-        navigate('/patient/login');
+        navigate('/patient/dashboard');
       } else {
         setError(response.data.msg);
       }

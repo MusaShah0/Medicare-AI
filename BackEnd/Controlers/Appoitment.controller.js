@@ -108,24 +108,37 @@ const Book_Appointment = async (req, res) => {
       })
     }
 
-    // Step 5 — No conflict, proceed with booking
-    const token = generateToken()
-    const roomResponse = await axios.post('https://api.videosdk.live/v2/rooms', {}, {
-      headers: { Authorization: token }
-    })
-    const validMeetingId = roomResponse.data.roomId
+    // Step 5 — Atomically claim the slot (prevents double-booking race condition)
+    const claimed = await Sechdule_Model.findOneAndUpdate(
+      { _id: scheduleId, status: 'available' },
+      { $set: { status: 'booked' } },
+      { new: true }
+    )
+    if (!claimed) {
+      return res.status(409).json({ success: false, message: 'This slot was just taken by another patient. Please choose a different time.' })
+    }
 
-    const appointment = new Appoitment_Model({
-      patient_id,
-      doctor_id: schedule.doctor,
-      sechdule_Id: scheduleId,
-      status: 'booked',
-      meeting_id: validMeetingId
-    })
-    await appointment.save()
+    let appointment
+    try {
+      const token = generateToken()
+      const roomResponse = await axios.post('https://api.videosdk.live/v2/rooms', {}, {
+        headers: { Authorization: token }
+      })
+      const validMeetingId = roomResponse.data.roomId
 
-    schedule.status = 'booked'
-    await schedule.save()
+      appointment = new Appoitment_Model({
+        patient_id,
+        doctor_id: schedule.doctor,
+        sechdule_Id: scheduleId,
+        status: 'booked',
+        meeting_id: validMeetingId
+      })
+      await appointment.save()
+    } catch (innerErr) {
+      // Roll back the slot claim if appointment creation fails
+      await Sechdule_Model.findByIdAndUpdate(scheduleId, { $set: { status: 'available' } })
+      throw innerErr
+    }
 
     return res.status(201).json({ success: true, message: 'Appointment booked successfully', data: appointment })
 
@@ -387,13 +400,12 @@ const Redeem_Reschedule = async (req, res) => {
     const patient_id = req.PatientId
     const { appointmentId, scheduleId } = req.params
 
-    // Verify the token appointment belongs to this patient and is valid
-    const originalAppointment = await Appoitment_Model.findOne({
-      _id: appointmentId,
-      patient_id,
-      status: 'cancelled',
-      is_rescheduled_token: true
-    })
+    // Atomically consume the token to prevent double-redemption race
+    const originalAppointment = await Appoitment_Model.findOneAndUpdate(
+      { _id: appointmentId, patient_id, status: 'cancelled', is_rescheduled_token: true },
+      { $set: { is_rescheduled_token: false } },
+      { new: true }
+    )
 
     if (!originalAppointment) {
       return res.status(404).json({
@@ -402,17 +414,19 @@ const Redeem_Reschedule = async (req, res) => {
       })
     }
 
-    // The new slot must belong to the same doctor
-    const newSchedule = await Sechdule_Model.findOne({
-      _id: scheduleId,
-      doctor: originalAppointment.doctor_id,
-      status: 'available'
-    })
+    // Atomically claim the new slot (prevents double-booking during redeem)
+    const newSchedule = await Sechdule_Model.findOneAndUpdate(
+      { _id: scheduleId, doctor: originalAppointment.doctor_id, status: 'available' },
+      { $set: { status: 'booked' } },
+      { new: true }
+    )
 
     if (!newSchedule) {
-      return res.status(404).json({
+      // Roll back: restore the token so the patient can try again
+      await Appoitment_Model.findByIdAndUpdate(appointmentId, { $set: { is_rescheduled_token: true } })
+      return res.status(409).json({
         success: false,
-        message: 'Selected slot is not available or does not belong to the same doctor'
+        message: 'Selected slot is not available or does not belong to the same doctor. Please choose another slot.'
       })
     }
 
@@ -439,6 +453,9 @@ const Redeem_Reschedule = async (req, res) => {
     })
 
     if (conflicting) {
+      // Roll back: release new slot and restore the token
+      await Sechdule_Model.findByIdAndUpdate(scheduleId, { $set: { status: 'available' } })
+      await Appoitment_Model.findByIdAndUpdate(appointmentId, { $set: { is_rescheduled_token: true } })
       const slot = conflicting.sechdule_Id
       return res.status(409).json({
         success: false,
@@ -447,32 +464,32 @@ const Redeem_Reschedule = async (req, res) => {
     }
 
     // Create the new appointment — no payment needed, linked to original
-    const token = generateToken()
-    const roomResponse = await axios.post('https://api.videosdk.live/v2/rooms', {}, {
-      headers: { Authorization: token }
-    })
-    const validMeetingId = roomResponse.data.roomId
+    let newAppointment
+    try {
+      const token = generateToken()
+      const roomResponse = await axios.post('https://api.videosdk.live/v2/rooms', {}, {
+        headers: { Authorization: token }
+      })
+      const validMeetingId = roomResponse.data.roomId
 
-    const newAppointment = new Appoitment_Model({
-      patient_id,
-      doctor_id: originalAppointment.doctor_id,
-      sechdule_Id: scheduleId,
-      status: 'booked',
-      meeting_id: validMeetingId,
-      rescheduled_from: originalAppointment._id
-    })
-    await newAppointment.save()
-
-    // Mark the new slot as booked
-    newSchedule.status = 'booked'
-    await newSchedule.save()
+      newAppointment = new Appoitment_Model({
+        patient_id,
+        doctor_id: originalAppointment.doctor_id,
+        sechdule_Id: scheduleId,
+        status: 'booked',
+        meeting_id: validMeetingId,
+        rescheduled_from: originalAppointment._id
+      })
+      await newAppointment.save()
+    } catch (innerErr) {
+      // Roll back slot claim and restore token on failure
+      await Sechdule_Model.findByIdAndUpdate(scheduleId, { $set: { status: 'available' } })
+      await Appoitment_Model.findByIdAndUpdate(appointmentId, { $set: { is_rescheduled_token: true } })
+      throw innerErr
+    }
 
     // Free the original locked slot back to available so the doctor can offer it to others
     await Sechdule_Model.findByIdAndUpdate(originalAppointment.sechdule_Id, { status: 'available' })
-
-    // Consume the token so it can't be reused
-    originalAppointment.is_rescheduled_token = false
-    await originalAppointment.save()
 
     return res.status(201).json({
       success: true,
@@ -499,6 +516,10 @@ const End_Meeting_Early = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Appointment not found' })
     }
 
+    if (!appointment.doctor_id || !appointment.patient_id) {
+      return res.status(500).json({ success: false, message: 'Appointment data is incomplete.' })
+    }
+
     // Verify the caller is either the doctor or patient of this appointment
     const isDoctor  = req.userRole === 'doctor'  && req.doctorId  && appointment.doctor_id.toString()  === req.doctorId.toString()
     const isPatient = req.userRole === 'patient' && req.PatientId && appointment.patient_id.toString() === req.PatientId.toString()
@@ -507,17 +528,19 @@ const End_Meeting_Early = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Unauthorized' })
     }
 
-    // Only process if appointment is currently ongoing
-    if (appointment.status !== 'ongoing') {
-      return res.status(400).json({ 
-        success: false, 
-        message: `Appointment is ${appointment.status}, not ongoing` 
+    // Atomically claim the 'ongoing' → 'completed' transition to prevent double-increment
+    // if auto-complete timer fires at the same time
+    const updated = await Appoitment_Model.findOneAndUpdate(
+      { _id: appointmentId, status: 'ongoing' },
+      { $set: { status: 'completed' } },
+      { new: true }
+    )
+    if (!updated) {
+      return res.status(400).json({
+        success: false,
+        message: `Appointment is not currently ongoing (may have already completed)`
       })
     }
-
-    // Mark appointment and schedule as completed
-    appointment.status = 'completed'
-    await appointment.save()
 
     const schedule = appointment.sechdule_Id
     if (schedule && schedule.status === 'ongoing') {
