@@ -235,6 +235,10 @@ const Validate_And_Join_Meeting = async (req, res) => {
       return res.status(403).json({ status: 0, msg: 'This meeting has already ended.' })
     }
 
+    if (!appointment.sechdule_Id || !appointment.doctor_id || !appointment.patient_id) {
+      return res.status(500).json({ status: 0, msg: 'Appointment data is incomplete. Please contact support.' })
+    }
+
     const schedule = appointment.sechdule_Id
     const todayMidnight = moment().startOf('day')
     const scheduleDate = moment(schedule.date).startOf('day')

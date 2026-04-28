@@ -24,7 +24,7 @@ const PatientLogin = () => {
 
     try {
       // Ensure this endpoint matches your Node.js route (e.g., router.post('/P_Login', ...))
-      const response = await axios.post('http://localhost:4000/P_Login', formData, {
+      const response = await axios.post(`${import.meta.env.VITE_API_URL}/P_Login`, formData, {
         withCredentials: true // IMPORTANT: Allows browser to set the HTTP-Only cookie
       });
 

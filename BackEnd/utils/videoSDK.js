@@ -1,7 +1,7 @@
 const jwt = require("jsonwebtoken");
 
-const API_KEY = "459d9d71-647a-4c6e-a2c2-b50e0a856c9f";
-const SECRET_KEY = "5144cb66d6122755f853ec9338177530758ab24fff2a9523e42910e0c22f62ec";
+const API_KEY = process.env.VIDEOSDK_API_KEY;
+const SECRET_KEY = process.env.VIDEOSDK_SECRET_KEY;
 
 /**
  * Generates a participant token — used for joining rooms from the browser.

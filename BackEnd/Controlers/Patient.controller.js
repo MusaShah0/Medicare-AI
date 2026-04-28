@@ -3,12 +3,23 @@ const PatientModel = require('../Models/Patient.model')
 
 const P_SignUp = async (req, res) => {
   try {
-    // 1. Destructure the new fields
     const { first_Name, last_Name, email, password, age, gender } = req.body;
 
-    // 2. Validation: Check if email already exists
+    // Input validation
+    if (!first_Name || !last_Name || !email || !password) {
+      return res.status(400).json({ status: 0, msg: "All fields are required." });
+    }
+    if (first_Name.length > 50 || last_Name.length > 50) {
+      return res.status(400).json({ status: 0, msg: "Name must be 50 characters or fewer." });
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ status: 0, msg: "Invalid email address." });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ status: 0, msg: "Password must be at least 8 characters." });
+    }
 
-  
     const existingUser = await PatientModel.findOne({ email });
     if (existingUser) {
       return res.status(409).json({
@@ -55,7 +66,6 @@ const P_SignUp = async (req, res) => {
 
 const P_LoginIn = async (req, res) => {
   try {
-    console.log(req.body)
     const { email, password } = req.body;
 
     const user = await PatientModel.findOne({ email });
@@ -80,7 +90,9 @@ const P_LoginIn = async (req, res) => {
   
 
     res.cookie("token", token, {
-      httpOnly: true
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production'
     });
 
     return res.json({
@@ -106,8 +118,9 @@ const P_LoginIn = async (req, res) => {
 const logout = (req, res, next) => {
   try {
     res.clearCookie("token", {
-      withCredentials: true,
       httpOnly: true,
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production',
     });
     return res.status(200).json({ status: 1, message: "Logged out successfully" });
   } catch (error) {

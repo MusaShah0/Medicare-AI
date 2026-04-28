@@ -208,7 +208,7 @@ const ScheduleGenerator = () => {
     };
 
     try {
-      const response = await axios.post('http://localhost:4000/Add_Sechdule', payload, {
+      const response = await axios.post(`${import.meta.env.VITE_API_URL}/Add_Sechdule`, payload, {
         withCredentials: true
       });
       // 201 success

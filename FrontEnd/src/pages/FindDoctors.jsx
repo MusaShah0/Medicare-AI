@@ -18,13 +18,13 @@ const FindDoctors = () => {
     if (!path) return PLACEHOLDER_IMG;
     if (path.startsWith("data:")) return path; 
     if (path.startsWith("http")) return path; 
-    return `http://localhost:4000${path}`;
+    return `${import.meta.env.VITE_API_URL}${path}`;
   };
 
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
-        const response = await axios.get('http://localhost:4000/View_Doctor');
+        const response = await axios.get(`${import.meta.env.VITE_API_URL}/View_Doctor`);
         if (response.data.success) {
             setDoctors(response.data.data);
         } else {

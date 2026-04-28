@@ -165,11 +165,17 @@ const Delete_Sechdule = async (req, res) => {
   }
 }
 
-// GET /Show_Sechdule_Status/:status  — no change needed
+const VALID_STATUSES = ['available', 'booked', 'ongoing', 'completed', 'cancelled']
+
+// GET /Show_Sechdule_Status/:status
 const Show_Sechdule_Status = async (req, res) => {
   try {
     const status = req.params.status
     const doctorId = req.doctorId
+
+    if (!VALID_STATUSES.includes(status)) {
+      return res.status(400).json({ status: 0, msg: 'Invalid status value' })
+    }
 
     const sechdule = await Sechdule_Model.find({ status, doctor: doctorId })
 

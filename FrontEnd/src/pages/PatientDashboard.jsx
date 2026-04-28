@@ -10,7 +10,7 @@ const PatientDashboard = () => {
   // --- 1. LOGOUT LOGIC ---
   const handleLogout = async () => {
     try {
-      await axios.get('http://localhost:4000/logout', { withCredentials: true });
+      await axios.get(`${import.meta.env.VITE_API_URL}/logout`, { withCredentials: true });
       localStorage.removeItem('patientData');
       navigate('/patient/login');
     } catch (err) {

@@ -42,7 +42,7 @@ const DoctorAppointments = () => {
   useEffect(() => {
     const fetchAppointments = async () => {
       try {
-        const res = await axios.get('http://localhost:4000/Doctor_Appointments', {
+        const res = await axios.get(`${import.meta.env.VITE_API_URL}/Doctor_Appointments`, {
           withCredentials: true
         });
         if (res.data.status === 1) {
@@ -82,7 +82,7 @@ const DoctorAppointments = () => {
     setRescheduleMsg(null);
     try {
       const res = await axios.post(
-        `http://localhost:4000/Reschedule_Appointment/${rescheduleTarget._id}`,
+        `${import.meta.env.VITE_API_URL}/Reschedule_Appointment/${rescheduleTarget._id}`,
         {},
         { withCredentials: true }
       );

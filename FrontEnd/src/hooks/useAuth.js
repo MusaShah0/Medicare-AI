@@ -12,11 +12,11 @@ const useAuth = (role) => {
   const [status, setStatus] = useState('loading');
 
   useEffect(() => {
+    const API = import.meta.env.VITE_API_URL;
     if (role === 'any') {
-      // Try both; authenticated if either succeeds
       Promise.any([
-        axios.get('http://localhost:4000/doctor/verify',  { withCredentials: true }),
-        axios.get('http://localhost:4000/patient/verify', { withCredentials: true }),
+        axios.get(`${API}/doctor/verify`,  { withCredentials: true }),
+        axios.get(`${API}/patient/verify`, { withCredentials: true }),
       ])
         .then(() => setStatus('authenticated'))
         .catch(() => setStatus('unauthenticated'));
@@ -25,8 +25,8 @@ const useAuth = (role) => {
 
     const endpoint =
       role === 'doctor'
-        ? 'http://localhost:4000/doctor/verify'
-        : 'http://localhost:4000/patient/verify';
+        ? `${API}/doctor/verify`
+        : `${API}/patient/verify`;
 
     axios
       .get(endpoint, { withCredentials: true })

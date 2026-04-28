@@ -50,11 +50,11 @@ const BookAppointment = () => {
   const getImageUrl = (path) =>
     !path ? PLACEHOLDER_IMG
     : (path.startsWith('data:') || path.startsWith('http')) ? path
-    : `http://localhost:4000/pictures/${path}`;
+    : `${import.meta.env.VITE_API_URL}/pictures/${path}`;
 
   const fetchSlots = async () => {
     try {
-      const res = await axios.get(`http://localhost:4000/Show_Appoitment_Sechdule/${id}`);
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/Show_Appoitment_Sechdule/${id}`);
       if (res.data.status === 1) {
         setGrouped(res.data.data);
         const firstDate = Object.keys(res.data.data).sort()[0];
@@ -71,7 +71,7 @@ const BookAppointment = () => {
     if (!id) return;
     fetchSlots();
     // Fetch doctor profile (completed count + last 5 reviews)
-    axios.get(`http://localhost:4000/doctor/profile/${id}`)
+    axios.get(`${import.meta.env.VITE_API_URL}/doctor/profile/${id}`)
       .then(res => { if (res.data.success) setProfile(res.data); })
       .catch(() => {}); // non-critical, fail silently
   }, [id]);
@@ -82,7 +82,7 @@ const BookAppointment = () => {
     setBookingError(null);
     try {
       const response = await axios.post(
-        `http://localhost:4000/Book_Appointment/${selectedSlot._id}`,
+        `${import.meta.env.VITE_API_URL}/Book_Appointment/${selectedSlot._id}`,
         {},
         { withCredentials: true }
       );

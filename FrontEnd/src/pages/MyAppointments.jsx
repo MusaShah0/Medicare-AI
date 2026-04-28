@@ -38,7 +38,7 @@ const ReviewModal = ({ appointment, onClose, onSubmitted }) => {
     setSubmitting(true);
     setError('');
     try {
-      await axios.post('http://localhost:4000/review', {
+      await axios.post(`${import.meta.env.VITE_API_URL}/review`, {
         appointment_id: appointment._id,
         rating,
         review: reviewText.trim()
@@ -186,7 +186,7 @@ const MyAppointments = () => {
   const checkNotes = async (appointmentId, { silent = false } = {}) => {
     if (!silent) setNotesLoading(prev => ({ ...prev, [appointmentId]: true }))
     try {
-      const res = await axios.get(`http://localhost:4000/appointments/${appointmentId}/notes`, {
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/appointments/${appointmentId}/notes`, {
         withCredentials: true
       })
       const incoming = res.data
@@ -213,7 +213,7 @@ const MyAppointments = () => {
 
   const fetchAppointments = async () => {
     try {
-      const res = await axios.get('http://localhost:4000/My_Appointments', { withCredentials: true });
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/My_Appointments`, { withCredentials: true });
       if (res.data.status === 1) {
         const appts = res.data.data;
         setAppointments(appts);
@@ -226,7 +226,7 @@ const MyAppointments = () => {
         if (completedIds.length > 0) {
           const checks = await Promise.all(
             completedIds.map(id =>
-              axios.get(`http://localhost:4000/review/check/${id}`, { withCredentials: true })
+              axios.get(`${import.meta.env.VITE_API_URL}/review/check/${id}`, { withCredentials: true })
                 .then(r => r.data.reviewed ? id : null)
                 .catch(() => null)
             )
@@ -286,7 +286,7 @@ const MyAppointments = () => {
     setRedeemMsg(null);
     setRedeemLoading(true);
     try {
-      const res = await axios.get(`http://localhost:4000/Show_Appoitment_Sechdule/${appointment.doctor_id?._id || appointment.doctor_id}`);
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/Show_Appoitment_Sechdule/${appointment.doctor_id?._id || appointment.doctor_id}`);
       if (res.data.status === 1) {
         setRedeemSlots(res.data.data);
         const firstDate = Object.keys(res.data.data).sort()[0];
@@ -305,7 +305,7 @@ const MyAppointments = () => {
     setRedeemMsg(null);
     try {
       const res = await axios.post(
-        `http://localhost:4000/Redeem_Reschedule/${redeemTarget._id}/${redeemSelectedSlot._id}`,
+        `${import.meta.env.VITE_API_URL}/Redeem_Reschedule/${redeemTarget._id}/${redeemSelectedSlot._id}`,
         {},
         { withCredentials: true }
       );
@@ -482,7 +482,7 @@ const MyAppointments = () => {
                   {app.status === 'completed' && notesInfo[app._id]?.status === 'complete' && (
                     <div className="mt-3 pt-3 border-t border-slate-100">
                       <a
-                        href={`http://localhost:4000${notesInfo[app._id].download_url}`}
+                        href={`${import.meta.env.VITE_API_URL}${notesInfo[app._id].download_url}`}
                         download
                         className={`text-sm font-semibold flex items-center gap-1.5 transition-all duration-500 px-3 py-2 rounded-xl w-full justify-center
                           ${newlyReady.has(app._id)

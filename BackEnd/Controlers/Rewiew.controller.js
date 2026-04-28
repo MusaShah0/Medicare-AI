@@ -44,7 +44,7 @@ const Submit_Review = async (req, res) => {
       patient_id,
       appointment_id,
       rating,
-      review: review || ''
+      review: review ? String(review).slice(0, 1000) : ''
     })
 
     return res.status(201).json({
@@ -54,6 +54,9 @@ const Submit_Review = async (req, res) => {
     })
 
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ success: false, message: 'You have already reviewed this appointment' })
+    }
     console.error('Submit_Review Error:', error)
     return res.status(500).json({ success: false, message: 'Server error', error: error.message })
   }
@@ -82,20 +85,31 @@ const Check_Review = async (req, res) => {
   }
 }
 
-// GET /review/doctor/:doctorId
-// Public — get all reviews for a doctor
+// GET /review/doctor/:doctorId?page=1&limit=10
+// Public — get paginated reviews for a doctor
 const Get_Doctor_Reviews = async (req, res) => {
   try {
     const { doctorId } = req.params
+    const page  = Math.max(1, parseInt(req.query.page)  || 1)
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10))
+    const skip  = (page - 1) * limit
 
-    const reviews = await ReviewModel
-      .find({ doctor_id: doctorId })
-      .populate('patient_id', 'first_Name last_Name')
-      .sort({ createdAt: -1 })
+    const [reviews, total] = await Promise.all([
+      ReviewModel
+        .find({ doctor_id: doctorId })
+        .populate('patient_id', 'first_Name last_Name')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      ReviewModel.countDocuments({ doctor_id: doctorId })
+    ])
 
     return res.status(200).json({
       success: true,
       count: reviews.length,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
       data: reviews
     })
 

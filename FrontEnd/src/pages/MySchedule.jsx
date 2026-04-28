@@ -32,7 +32,7 @@ const MySchedule = () => {
   const fetchSchedule = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('http://localhost:4000/Show_Doctor_Sechdule', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/Show_Doctor_Sechdule`, {
         withCredentials: true
       });
       if (response.data.status === 1) {
@@ -50,7 +50,7 @@ const MySchedule = () => {
   const handleDelete = async (slotId) => {
     if (!window.confirm('Delete this slot?')) return;
     try {
-      await axios.delete(`http://localhost:4000/Delete_Sechdule/${slotId}`, {
+      await axios.delete(`${import.meta.env.VITE_API_URL}/Delete_Sechdule/${slotId}`, {
         withCredentials: true
       });
       setSchedules(prev => prev.filter(s => s._id !== slotId));

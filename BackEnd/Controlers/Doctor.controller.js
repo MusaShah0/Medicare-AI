@@ -35,15 +35,39 @@ const upload = multer({
     }
 });
 
+const VALID_SPECIALITIES = ['Cardiologist','Dermatologist','Neurologist','Pediatrician','General Surgeon','Psychiatrist','Orthopedic']
+
 // --- CONTROLLERS ---
 
 const D_SignUp = async (req, res) => {
     try {
         const { first_Name, last_Name, ph, email, password, speciality, degrees } = req.body;
 
+        // Input validation
+        if (!first_Name || !last_Name || !email || !password || !speciality || !ph) {
+            return res.status(400).json({ message: "All fields are required." });
+        }
+        if (first_Name.length > 50 || last_Name.length > 50) {
+            return res.status(400).json({ message: "Name must be 50 characters or fewer." });
+        }
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ message: "Invalid email address." });
+        }
+        if (password.length < 8) {
+            return res.status(400).json({ message: "Password must be at least 8 characters." });
+        }
+        if (!VALID_SPECIALITIES.includes(speciality)) {
+            return res.status(400).json({ message: "Invalid speciality." });
+        }
+        const phRegex = /^[+\d\s\-()]{7,20}$/;
+        if (!phRegex.test(ph)) {
+            return res.status(400).json({ message: "Invalid phone number." });
+        }
+
         const existingDoctor = await D_Model.findOne({ email });
         if (existingDoctor) {
-            return res.status(400).json({ message: "Email already registered." });
+            return res.status(409).json({ message: "Email already registered." });
         }
 
         let parsedDegrees = degrees;
@@ -69,9 +93,8 @@ const D_SignUp = async (req, res) => {
 
         await newDoctor.save();
         const token = await newDoctor.Generate_Token();
-        
-        // Cookie for persistence
-        res.cookie('token', token, { httpOnly: true });
+
+        res.cookie('token', token, { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production' });
 
         res.status(201).json({
             success: true,
@@ -106,7 +129,7 @@ const D_LogIn = async (req, res) => {
 
     const token = await user.Generate_Token();
     
-    res.cookie('token', token, { httpOnly: true });
+    res.cookie('token', token, { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production' });
 
     return res.status(200).json({
       status: 1,

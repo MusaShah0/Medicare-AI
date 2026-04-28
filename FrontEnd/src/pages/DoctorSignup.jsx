@@ -4,8 +4,7 @@ import { useNavigate } from 'react-router-dom';
 
 // setRole no longer needed — auth is verified via cookie
 const DoctorSignup = () => {
-  // --- CONFIGURATION ---
-  const API_URL = 'http://localhost:4000/D_SignUp';
+  const API_URL = `${import.meta.env.VITE_API_URL}/D_SignUp`;
   const navigate = useNavigate();
 
   // --- STATE MANAGEMENT ---

@@ -43,7 +43,7 @@ const AIChat = () => {
 
     const startSession = async () => {
       try {
-        const response = await axios.post('http://localhost:4000/startNewChat', {}, {
+        const response = await axios.post(`${import.meta.env.VITE_API_URL}/startNewChat`, {}, {
           withCredentials: true
         });
 
@@ -83,7 +83,7 @@ const AIChat = () => {
         session_id: sessionId
       };
 
-      const response = await axios.post('http://localhost:4000/SendMessage', payload, {
+      const response = await axios.post(`${import.meta.env.VITE_API_URL}/SendMessage`, payload, {
         withCredentials: true
       });
 

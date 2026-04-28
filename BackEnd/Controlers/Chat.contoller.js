@@ -52,6 +52,9 @@ const SendMessage = async (req, res) => {
         if (!question || !session_id) {
             return res.status(400).json({ error: "Missing required fields" });
         }
+        if (String(question).length > 2000) {
+            return res.status(400).json({ error: "Question is too long. Maximum 2000 characters." });
+        }
 
         // A. Call Python/FastAPI AI
         let aiResponse = { answer: "AI unavailable", sources: [] };

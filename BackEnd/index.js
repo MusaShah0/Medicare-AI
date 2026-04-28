@@ -1,11 +1,16 @@
 const express=require('express')
 const cookieParser=require('cookie-parser')
+const helmet = require('helmet')
 const D_Routes=require('./Routes/Doctor.route')
 const app=express()
 const mongoose=require('mongoose')
 const cors = require('cors');
+
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }, // allow /pictures static files
+}))
 app.use(cors({
-  origin: 'http://localhost:5173', 
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE"],
 }));

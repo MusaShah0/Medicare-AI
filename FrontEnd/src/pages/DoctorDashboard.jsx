@@ -20,7 +20,7 @@ const DoctorDashboard = () => {
 
   const handleLogout = async () => {
     try {
-      await axios.get('http://localhost:4000/Doctor_Logout', { withCredentials: true });
+      await axios.get(`${import.meta.env.VITE_API_URL}/Doctor_Logout`, { withCredentials: true });
       localStorage.removeItem('doctorName');
       localStorage.removeItem('doctorId');
       navigate('/login');
