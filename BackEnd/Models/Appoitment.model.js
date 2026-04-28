@@ -42,6 +42,13 @@ const AppoitmentSechema = mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Appoitment',
     default: null
+  },
+
+  // Reference to the AI-generated meeting notes PDF (set after recording is processed)
+  meeting_note_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'MeetingNote',
+    default: null
   }
 
 }, { timestamps: true })

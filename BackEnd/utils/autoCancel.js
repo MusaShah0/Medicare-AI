@@ -1,6 +1,7 @@
 const moment = require('moment')
 const Sechdule_Model = require('../Models/sechdule.model')
 const DoctorModel = require('../Models/Dooctor.model')
+const { stopRoomRecording, pollForRecording, isLocalhost } = require('./recordingSDK')
 
 /**
  * Increments the doctor's completed_appointments counter by 1.
@@ -42,6 +43,20 @@ const scheduleAutoComplete = (appointmentId, doctorId, msUntilEnd) => {
         apt.status = 'completed'
         await apt.save()
         await incrementDoctorCompletedCount(doctorId)
+
+        if (apt.meeting_id) {
+          // Stop the recording
+          stopRoomRecording(apt.meeting_id).catch(() => {})
+
+          // If WEBHOOK_BASE_URL is localhost, VideoSDK can't deliver the webhook.
+          // Use polling fallback regardless of whether recording start succeeded —
+          // VideoSDK may have auto-captured the session even if our start call failed.
+          if (isLocalhost()) {
+            triggerPollingFallback(apt).catch(err =>
+              console.error('[Notes] Polling fallback error:', err.message)
+            )
+          }
+        }
       }
 
       const sch = apt ? await Sechdule_Model.findById(apt.sechdule_Id) : null
@@ -50,13 +65,85 @@ const scheduleAutoComplete = (appointmentId, doctorId, msUntilEnd) => {
         await sch.save()
       }
 
-      console.log(`Appointment ${key} auto-completed at slot end`)
+      console.log(`[Notes] Appointment ${key} auto-completed at slot end`)
     } catch (err) {
       console.error('Auto-complete error:', err)
     }
   }, msUntilEnd)
 
   _autoCompleteTimers.set(key, handle)
+}
+
+/**
+ * Cancels a scheduled auto-complete timer.
+ * Called when the meeting ends early (participants leave before slot end time).
+ *
+ * @param {string} appointmentId
+ */
+const cancelAutoComplete = (appointmentId) => {
+  const key = appointmentId.toString()
+  const handle = _autoCompleteTimers.get(key)
+  
+  if (handle) {
+    clearTimeout(handle)
+    _autoCompleteTimers.delete(key)
+  }
+}
+
+/**
+ * Polling fallback for local development when WEBHOOK_BASE_URL is localhost.
+ * VideoSDK cannot deliver webhooks to localhost, so we poll their API instead.
+ * Mimics exactly what the webhook handler does.
+ */
+async function triggerPollingFallback(apt) {
+  const { pollForRecording } = require('./recordingSDK')
+  const MeetingNote = require('../Models/MeetingNote.model')
+  const Appoitment_Model = require('../Models/Appoitment.model')
+
+  // Wait for VideoSDK to process the recording (usually 1-3 min after session ends)
+  console.log(`[Notes] Polling fallback started — waiting 90s for VideoSDK to process recording...`)
+  await new Promise(r => setTimeout(r, 90000))
+
+  const result = await pollForRecording(apt.meeting_id)
+  if (!result) {
+    console.error(`[Notes] No recording found for roomId: ${apt.meeting_id} — notes will not be generated`)
+    return
+  }
+
+  // Re-fetch appointment with populated fields
+  const appointment = await Appoitment_Model.findById(apt._id)
+    .populate('doctor_id',   'first_Name last_Name')
+    .populate('patient_id',  'first_Name last_Name')
+    .populate('sechdule_Id', 'date startTime endTime')
+
+  if (!appointment) return
+  if (!appointment.doctor_id || !appointment.patient_id || !appointment.sechdule_Id) return
+
+  // Idempotency — skip if note already exists
+  const existing = await MeetingNote.findOne({ appointment_id: appointment._id })
+  if (existing) return
+
+  let note
+  try {
+    note = await MeetingNote.create({
+      appointment_id: appointment._id,
+      status: 'processing',
+      recording_url: result.fileUrl
+    })
+  } catch (err) {
+    if (err.code === 11000) return
+    throw err
+  }
+
+  appointment.meeting_note_id = note._id
+  await appointment.save()
+
+  console.log(`[Notes] MeetingNote ${note._id} created via polling — starting pipeline`)
+
+  const { downloadAndProcessFromUrl } = require('../Controlers/Webhook.controller')
+  downloadAndProcessFromUrl(note._id.toString(), result.fileUrl, appointment).catch(err =>
+    console.error('[Notes] Polling pipeline error:', err.message)
+  )
 }
 
 /**
@@ -98,6 +185,18 @@ const autoCancel = async (docs, mode = 'appointment') => {
       if (mode === 'appointment' && schedule.status !== 'completed' && schedule.status !== 'cancelled') {
         schedule.status = doc.status
         await schedule.save()
+      }
+
+      // If an ongoing appointment is auto-completed and has no notes yet,
+      // trigger the polling fallback so notes are still generated after a server restart
+      if (wasOngoing && mode === 'appointment' && doc.meeting_id && isLocalhost()) {
+        const MeetingNote = require('../Models/MeetingNote.model')
+        const existing = await MeetingNote.findOne({ appointment_id: doc._id })
+        if (!existing) {
+          triggerPollingFallback(doc).catch(err =>
+            console.error('[Notes] autoCancel polling fallback error:', err.message)
+          )
+        }
       }
     }
   }
@@ -161,3 +260,5 @@ module.exports = autoCancel
 module.exports.cancelStaleAndFetchUpcoming = cancelStaleAndFetchUpcoming
 module.exports.incrementDoctorCompletedCount = incrementDoctorCompletedCount
 module.exports.scheduleAutoComplete = scheduleAutoComplete
+module.exports.cancelAutoComplete = cancelAutoComplete
+module.exports.triggerPollingFallback = triggerPollingFallback

@@ -8,7 +8,8 @@ const {
   Get_Video_Token,
   Validate_And_Join_Meeting,
   Reschedule_Appointment,
-  Redeem_Reschedule
+  Redeem_Reschedule,
+  End_Meeting_Early
 } = require('../Controlers/Appoitment.controller');
 
 const Patient_Check = require('../MiddleWare/Patient.middleware');
@@ -31,5 +32,8 @@ Apppoitment_Routes.post('/Reschedule_Appointment/:appointmentId', Doctor_Check, 
 
 // Patient redeems their free rebook token to book a new slot
 Apppoitment_Routes.post('/Redeem_Reschedule/:appointmentId/:scheduleId', Patient_Check, Redeem_Reschedule);
+
+// End meeting early (when participants leave before scheduled end time)
+Apppoitment_Routes.post('/end-meeting/:appointmentId', AnyUser_Check, End_Meeting_Early);
 
 module.exports = Apppoitment_Routes;

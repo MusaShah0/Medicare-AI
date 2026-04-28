@@ -481,3 +481,110 @@ These typos exist throughout the codebase. Do not rename without updating all re
 
 - [`design.md`](./design.md) — UI design reference: every page, all fields, buttons, and displayed data (for Stitch AI or similar design tools)
 - [`videocall.md`](./videocall.md) — Complete video call flow documentation: VideoSDK integration, server-side timer, join validation, post-session behavior
+
+
+---
+
+## 🆕 AI Meeting Notes Feature
+
+After a video consultation ends, patients can download an AI-generated PDF summary of the full consultation — including both the doctor's and patient's sides of the conversation.
+
+### How It Works
+
+1. **Recording starts**: When the first participant joins, VideoSDK cloud recording starts automatically (server-side)
+2. **Recording runs**: Both participants are recorded for the entire session duration
+3. **Recording stops**: When the appointment time ends, recording stops automatically
+4. **Webhook received**: VideoSDK sends a webhook when the recording file is ready (1-3 minutes after session ends)
+5. **Download + transcribe**: Backend downloads the audio and sends it to the AI service for transcription using `faster-whisper`
+6. **Summarize**: The transcript is summarized by Groq `llama-3.1-8b-instant` into a patient-friendly format with 5 structured sections
+7. **PDF generated**: A branded PDF is created using `pdfkit`
+8. **Patient downloads**: Patient sees a "View Consultation Notes" button on their My Appointments page for completed appointments
+
+### Setup Requirements
+
+**Backend dependencies:**
+```bash
+cd BackEnd
+npm install pdfkit
+```
+
+**AI Service dependencies:**
+```bash
+cd AI
+uv add faster-whisper==1.0.3
+```
+
+**Environment variables:**
+Add to `BackEnd/.env`:
+```env
+WEBHOOK_BASE_URL=http://localhost:4000
+```
+
+**Important:** For local testing, you must use [ngrok](https://ngrok.com) to expose port 4000 publicly so VideoSDK webhooks can reach your server:
+```bash
+ngrok http 4000
+# Then update WEBHOOK_BASE_URL in .env with the ngrok HTTPS URL
+```
+
+### New API Endpoints
+
+**Patient endpoints:**
+- `GET /appointments/:appointmentId/notes` — Check if notes are ready
+- `GET /notes/:noteId/download` — Download the PDF
+
+**Webhook endpoint (called by VideoSDK):**
+- `POST /webhook/videosdk` — Receives recording-ready notification
+
+**AI Service endpoints:**
+- `POST /transcribe` — Transcribe audio file (multipart/form-data)
+- `POST /summarize` — Generate patient-friendly summary
+
+### Database Schema
+
+**New collection: `meetingnotes`**
+```javascript
+{
+  appointment_id: ObjectId (unique),
+  status: 'processing' | 'complete' | 'failed',
+  recording_url: String,
+  audio_path: String,
+  transcript: String,
+  summary: String,
+  pdf_path: String,
+  error_message: String,
+  created_at: Date
+}
+```
+
+**Modified collection: `appoitments`**
+```javascript
+{
+  // ... existing fields ...
+  meeting_note_id: ObjectId (ref: MeetingNote)  // NEW
+}
+```
+
+### Security Features
+
+- **PHI Authorization**: Download endpoint verifies the requesting patient owns the appointment
+- **Idempotency**: MongoDB unique index prevents duplicate processing from duplicate webhooks
+- **Timeout Recovery**: Notes stuck in 'processing' for >1 hour are marked as failed
+- **Cleanup**: Audio files are automatically deleted after PDF generation
+
+### Testing
+
+See [`docs/meeting-notes-testing-checklist.md`](./docs/meeting-notes-testing-checklist.md) for a complete step-by-step testing guide.
+
+**Quick test:**
+1. Start all services (Backend, AI, Frontend) + ngrok
+2. Book and join a video consultation
+3. Wait for appointment to end
+4. Wait 2-3 minutes for processing
+5. Check "My Appointments" page for "View Consultation Notes" button
+6. Download the PDF
+
+### Additional Documentation
+
+- [`docs/meeting-notes-setup.md`](./docs/meeting-notes-setup.md) — Complete setup guide and troubleshooting
+- [`docs/meeting-notes-implementation-summary.md`](./docs/meeting-notes-implementation-summary.md) — Implementation summary with all files created/modified
+- [`docs/meeting-notes-testing-checklist.md`](./docs/meeting-notes-testing-checklist.md) — Step-by-step testing checklist

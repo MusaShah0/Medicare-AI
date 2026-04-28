@@ -136,6 +136,12 @@ const MyAppointments = () => {
   const [redeemSelectedSlot, setRedeemSelectedSlot] = useState(null);
   const [redeemMsg, setRedeemMsg] = useState(null); // { type: 'success'|'error', text }
 
+  // Consultation notes state
+  const [notesInfo, setNotesInfo] = useState({});       // { [appointmentId]: { status, download_url } }
+  const [notesLoading, setNotesLoading] = useState({}); // { [appointmentId]: true/false }
+  const [newlyReady, setNewlyReady] = useState(new Set()); // ids that just became ready (for highlight)
+  const [processingToast, setProcessingToast] = useState(false); // show "notes generating" banner
+
   // Live clock — ticks every 30s
   useEffect(() => {
     const tick = setInterval(() => setNow(new Date()), 30000);
@@ -174,6 +180,37 @@ const MyAppointments = () => {
   };
 
   // --- DATA FETCHING ---
+
+  // Check consultation notes status — detects when processing → complete
+  // Defined BEFORE fetchAppointments so it can be called inside it
+  const checkNotes = async (appointmentId, { silent = false } = {}) => {
+    if (!silent) setNotesLoading(prev => ({ ...prev, [appointmentId]: true }))
+    try {
+      const res = await axios.get(`http://localhost:4000/appointments/${appointmentId}/notes`, {
+        withCredentials: true
+      })
+      const incoming = res.data
+      setNotesInfo(prev => {
+        const previous = prev[appointmentId]
+        // If it just flipped to complete, mark it as newly ready for the highlight effect
+        if (incoming.status === 'complete' && previous?.status !== 'complete') {
+          setNewlyReady(r => new Set([...r, appointmentId]))
+          setProcessingToast(false)
+          // Remove highlight after 6 seconds
+          setTimeout(() => setNewlyReady(r => { const n = new Set(r); n.delete(appointmentId); return n }), 6000)
+        }
+        return { ...prev, [appointmentId]: incoming }
+      })
+      return incoming.status
+    } catch (err) {
+      console.error(`[Notes] Status check failed:`, err.response?.data || err.message)
+      setNotesInfo(prev => ({ ...prev, [appointmentId]: { status: 'failed' } }))
+      return 'failed'
+    } finally {
+      if (!silent) setNotesLoading(prev => ({ ...prev, [appointmentId]: false }))
+    }
+  };
+
   const fetchAppointments = async () => {
     try {
       const res = await axios.get('http://localhost:4000/My_Appointments', { withCredentials: true });
@@ -195,6 +232,13 @@ const MyAppointments = () => {
             )
           );
           setReviewedIds(new Set(checks.filter(Boolean)));
+
+          // Auto-check notes status for all completed appointments
+          // and show toast if any are still actively processing
+          const statuses = await Promise.all(completedIds.map(id => checkNotes(id)));
+          if (statuses.some(s => s === 'processing')) {
+            setProcessingToast(true);
+          }
         }
       } else {
         setAppointments([]);
@@ -218,6 +262,20 @@ const MyAppointments = () => {
     setReviewedIds(prev => new Set([...prev, appointmentId]));
     setActiveReview(null);
   };
+
+  // Poll every 10s for any appointment whose notes are still processing
+  useEffect(() => {
+    const processingIds = Object.entries(notesInfo)
+      .filter(([, v]) => v.status === 'processing')
+      .map(([id]) => id)
+    if (processingIds.length === 0) return
+    const interval = setInterval(() => {
+      processingIds.forEach(id => checkNotes(id, { silent: true }))
+    }, 10000)
+    return () => clearInterval(interval)
+  // checkNotes is stable (defined outside effects) — notesInfo is the real dependency
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notesInfo]);
 
   // Open the reschedule token modal and load available slots from the same doctor
   const openRedeemModal = async (appointment) => {
@@ -280,6 +338,30 @@ const MyAppointments = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
+
+      {/* ── Processing Toast Banner ─────────────────────────────────────────── */}
+      {processingToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-slate-700 max-w-sm w-full mx-4 animate-fade-in">
+          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+            <svg className="animate-spin w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold">Generating your meeting notes</p>
+            <p className="text-xs text-slate-400 mt-0.5">This takes a few minutes. We'll highlight the download when ready.</p>
+          </div>
+          <button
+            onClick={() => setProcessingToast(false)}
+            className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-slate-700 text-slate-400 hover:text-white transition"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* HEADER */}
       <div className="bg-white/80 backdrop-blur-md sticky top-0 z-20 border-b border-slate-200/60">
@@ -395,6 +477,26 @@ const MyAppointments = () => {
                     ) : (
                       <span className="text-slate-400 text-sm font-medium capitalize">{app.status}</span>
                     )}                  </div>
+
+                  {/* CONSULTATION NOTES SECTION — only show when ready */}
+                  {app.status === 'completed' && notesInfo[app._id]?.status === 'complete' && (
+                    <div className="mt-3 pt-3 border-t border-slate-100">
+                      <a
+                        href={`http://localhost:4000${notesInfo[app._id].download_url}`}
+                        download
+                        className={`text-sm font-semibold flex items-center gap-1.5 transition-all duration-500 px-3 py-2 rounded-xl w-full justify-center
+                          ${newlyReady.has(app._id)
+                            ? 'bg-teal-500 text-white shadow-lg shadow-teal-200 scale-105 animate-pulse'
+                            : 'bg-teal-50 text-teal-700 hover:bg-teal-100 border border-teal-200'
+                          }`}
+                      >
+                        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        {newlyReady.has(app._id) ? '✨ Meeting Notes Ready — Download PDF' : 'Download Meeting Notes (PDF)'}
+                      </a>
+                    </div>
+                  )}
 
                 </div>
               );

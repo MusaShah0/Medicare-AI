@@ -4,7 +4,8 @@ const Sechdule_Model = require('../Models/sechdule.model')
 const Appoitment_Model = require('../Models/Appoitment.model')
 const { generateToken } = require('../utils/videoSDK')
 const autoCancel = require('../utils/autoCancel')
-const { cancelStaleAndFetchUpcoming, incrementDoctorCompletedCount, scheduleAutoComplete } = require('../utils/autoCancel')
+const { cancelStaleAndFetchUpcoming, incrementDoctorCompletedCount, scheduleAutoComplete, cancelAutoComplete } = require('../utils/autoCancel')
+const { startRoomRecording, stopRoomRecording } = require('../utils/recordingSDK')
 
 // GET /Show_Appoitment_Sechdule/:id  — :id = doctorId
 // Cancels stale slots on the fly, returns only upcoming available ones grouped by date
@@ -151,7 +152,8 @@ const My_Appointments = async (req, res) => {
       patient_id,
       $or: [
         { status: { $in: ['booked', 'ongoing'] } },
-        { status: 'cancelled', is_rescheduled_token: true }
+        { status: 'cancelled', is_rescheduled_token: true },
+        { status: 'completed' }
       ]
     })
       .populate('doctor_id', 'first_Name last_Name speciality')
@@ -159,7 +161,7 @@ const My_Appointments = async (req, res) => {
       .sort({ createdAt: -1 })
 
     if (!updatedAppointments || updatedAppointments.length === 0) {
-      return res.status(404).json({ status: 0, msg: 'No active appointments found' })
+      return res.status(200).json({ status: 1, data: [] })
     }
 
     return res.status(200).json({ status: 1, data: updatedAppointments })
@@ -289,6 +291,13 @@ const Validate_And_Join_Meeting = async (req, res) => {
       await appointment.save()
       schedule.status = 'ongoing'
       await schedule.save()
+
+      // Start VideoSDK cloud recording for this room (both participants, server-side)
+      // Note: only works when WEBHOOK_BASE_URL is a public URL (not localhost).
+      // For local dev, browser-side audio recording is used instead (see VideoCall.jsx).
+      startRoomRecording(appointment.meeting_id, appointment._id).catch(err =>
+        console.error('[Notes] VideoSDK recording start failed:', err.message)
+      )
     }
 
     const remainingMs = endMoment.diff(now)
@@ -473,6 +482,64 @@ const Redeem_Reschedule = async (req, res) => {
   }
 }
 
+// POST /end-meeting/:appointmentId  — Called when meeting ends early (participants leave)
+const End_Meeting_Early = async (req, res) => {
+  try {
+    const { appointmentId } = req.params
+
+    // Verify user is authorized (doctor or patient of this appointment)
+    const appointment = await Appoitment_Model.findById(appointmentId)
+      .populate('sechdule_Id')
+
+    if (!appointment) {
+      return res.status(404).json({ success: false, message: 'Appointment not found' })
+    }
+
+    // Verify the caller is either the doctor or patient of this appointment
+    const isDoctor  = req.userRole === 'doctor'  && req.doctorId  && appointment.doctor_id.toString()  === req.doctorId.toString()
+    const isPatient = req.userRole === 'patient' && req.PatientId && appointment.patient_id.toString() === req.PatientId.toString()
+
+    if (!isDoctor && !isPatient) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' })
+    }
+
+    // Only process if appointment is currently ongoing
+    if (appointment.status !== 'ongoing') {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Appointment is ${appointment.status}, not ongoing` 
+      })
+    }
+
+    // Mark appointment and schedule as completed
+    appointment.status = 'completed'
+    await appointment.save()
+
+    const schedule = appointment.sechdule_Id
+    if (schedule && schedule.status === 'ongoing') {
+      schedule.status = 'completed'
+      await schedule.save()
+    }
+
+    // Increment doctor's completed count
+    await incrementDoctorCompletedCount(appointment.doctor_id)
+
+    // Cancel the auto-complete timer (no longer needed)
+    cancelAutoComplete(appointmentId)
+
+    // Stop the recording if VideoSDK recording was active
+    if (appointment.meeting_id) {
+      stopRoomRecording(appointment.meeting_id).catch(() => {})
+    }
+
+    return res.status(200).json({ success: true, message: 'Meeting ended successfully' })
+
+  } catch (error) {
+    console.error('End_Meeting_Early Error:', error)
+    return res.status(500).json({ success: false, message: 'Server error', error: error.message })
+  }
+}
+
 module.exports = {
   Show_Appoitment_Sechdule,
   Book_Appointment,
@@ -481,5 +548,6 @@ module.exports = {
   Get_Video_Token,
   Validate_And_Join_Meeting,
   Reschedule_Appointment,
-  Redeem_Reschedule
+  Redeem_Reschedule,
+  End_Meeting_Early
 }
