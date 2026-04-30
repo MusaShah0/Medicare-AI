@@ -191,4 +191,72 @@ const logoutDoctor = (req, res) => {
     }
 };
 
-module.exports = { D_SignUp, D_LogIn, View_Doctor, Verify_Doctor, upload, logoutDoctor };
+// ── Get own profile ────────────────────────────────────────────────────────
+const Get_Profile = async (req, res) => {
+    try {
+        const doctor = await D_Model.findById(req.doctorId).select('-password');
+        if (!doctor) return res.status(404).json({ success: false, message: 'Doctor not found.' });
+        res.json({ success: true, data: doctor });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+// ── Update own profile (email cannot be changed) ───────────────────────────
+const Update_Profile = async (req, res) => {
+    try {
+        const { first_Name, last_Name, ph, speciality, degrees, password } = req.body;
+
+        if (first_Name && first_Name.length > 50)
+            return res.status(400).json({ success: false, message: 'First name must be 50 characters or fewer.' });
+        if (last_Name && last_Name.length > 50)
+            return res.status(400).json({ success: false, message: 'Last name must be 50 characters or fewer.' });
+        if (ph) {
+            const phRegex = /^[+\d\s\-()]{7,20}$/;
+            if (!phRegex.test(ph))
+                return res.status(400).json({ success: false, message: 'Invalid phone number.' });
+        }
+        if (speciality && !VALID_SPECIALITIES.includes(speciality))
+            return res.status(400).json({ success: false, message: 'Invalid speciality.' });
+        if (password && password.length < 8)
+            return res.status(400).json({ success: false, message: 'Password must be at least 8 characters.' });
+
+        const doctor = await D_Model.findById(req.doctorId);
+        if (!doctor) return res.status(404).json({ success: false, message: 'Doctor not found.' });
+
+        if (first_Name) doctor.first_Name = first_Name;
+        if (last_Name)  doctor.last_Name  = last_Name;
+        if (ph)         doctor.ph         = ph;
+        if (speciality) doctor.speciality = speciality;
+
+        if (degrees) {
+            let parsed = degrees;
+            if (typeof degrees === 'string') {
+                try { parsed = JSON.parse(degrees); }
+                catch { parsed = degrees.split(',').map(d => d.trim()).filter(Boolean); }
+            }
+            doctor.degrees = parsed;
+        }
+
+        if (password) doctor.password = password; // pre-save hook hashes it
+
+        // New profile picture uploaded
+        if (req.file) {
+            if (doctor.profile_Picture && doctor.profile_Picture !== 'default-doctor.png') {
+                const old = path.join(__dirname, '../public/pictures', doctor.profile_Picture);
+                if (fs.existsSync(old)) fs.unlinkSync(old);
+            }
+            doctor.profile_Picture = req.file.filename;
+        }
+
+        await doctor.save();
+        const updated = doctor.toObject();
+        delete updated.password;
+        res.json({ success: true, message: 'Profile updated successfully.', data: updated });
+    } catch (err) {
+        if (req.file) fs.unlinkSync(path.join('public/pictures', req.file.filename));
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+module.exports = { D_SignUp, D_LogIn, View_Doctor, Verify_Doctor, upload, logoutDoctor, Get_Profile, Update_Profile };

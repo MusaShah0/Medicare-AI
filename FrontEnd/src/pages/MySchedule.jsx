@@ -8,17 +8,138 @@ const formatDateLabel = (isoDate) =>
     weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
   });
 
-// Format "YYYY-MM-DD" for API call
+// Format "YYYY-MM-DD" for grouping key
 const toDateStr = (isoDate) => new Date(isoDate).toISOString().split('T')[0];
 
-const statusStyle = {
-  available: 'text-teal-700 bg-teal-100',
-  booked: 'text-blue-700 bg-blue-100',
-  cancelled: 'text-red-600 bg-red-100',
-  completed: 'text-slate-500 bg-slate-100',
-  ongoing: 'text-amber-700 bg-amber-100'
+// ── Sidebar shared component ───────────────────────────────────────────────────
+const Sidebar = ({ active }) => (
+  <aside className="bg-[#0A2540] w-64 fixed inset-y-0 left-0 flex flex-col z-20">
+    {/* Brand */}
+    <div className="px-6 py-6 border-b border-white/10">
+      <span className="text-white font-extrabold text-xl tracking-tight">
+        Medi<span className="text-[#00B4A0]">Care</span> AI
+      </span>
+    </div>
+
+    {/* Nav links */}
+    <nav className="flex-1 px-4 py-6 space-y-1">
+      <Link
+        to="/doctor-dashboard"
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all border-l-2 ${
+          active === 'dashboard'
+            ? 'bg-white/15 text-white font-semibold border-[#00B4A0]'
+            : 'text-white/70 hover:text-white hover:bg-white/10 border-transparent'
+        }`}
+      >
+        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+        Dashboard
+      </Link>
+      <Link
+        to="/doctor/appointments"
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all border-l-2 ${
+          active === 'appointments'
+            ? 'bg-white/15 text-white font-semibold border-[#00B4A0]'
+            : 'text-white/70 hover:text-white hover:bg-white/10 border-transparent'
+        }`}
+      >
+        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        Appointments
+      </Link>
+      <Link
+        to="/doctor/schedule"
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all border-l-2 ${
+          active === 'schedule'
+            ? 'bg-white/15 text-white font-semibold border-[#00B4A0]'
+            : 'text-white/70 hover:text-white hover:bg-white/10 border-transparent'
+        }`}
+      >
+        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+        My Schedule
+      </Link>
+      <Link
+        to="/doctor/schedule/create"
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all border-l-2 ${
+          active === 'create'
+            ? 'bg-white/15 text-white font-semibold border-[#00B4A0]'
+            : 'text-white/70 hover:text-white hover:bg-white/10 border-transparent'
+        }`}
+      >
+        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+        </svg>
+        Create Schedule
+      </Link>
+
+      <Link
+        to="/doctor/edit-profile"
+        className="flex items-center gap-3 px-4 py-2.5 rounded-xl transition text-sm font-medium border-l-2 border-transparent text-white/70 hover:text-white hover:bg-white/10"
+      >
+        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+        Edit Profile
+      </Link>
+    </nav>
+
+    {/* Logout */}
+    <div className="px-4 pb-6">
+      <Link
+        to="/logout"
+        className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-white/50 hover:text-white/80 hover:bg-white/10 transition text-sm font-medium border-l-2 border-transparent"
+      >
+        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+        </svg>
+        Logout
+      </Link>
+    </div>
+  </aside>
+);
+
+// ── SlotCard ──────────────────────────────────────────────────────────────────
+const SlotCard = ({ slot, onDelete }) => {
+  const badgeStyle = {
+    available:  'text-[#00B4A0] bg-[#00B4A0]/10 border border-[#00B4A0]/20',
+    booked:     'text-amber-700 bg-amber-100 border border-amber-200',
+    cancelled:  'text-red-600 bg-red-50 border border-red-200',
+    completed:  'text-slate-500 bg-slate-100 border border-slate-200',
+    ongoing:    'text-amber-700 bg-amber-100 border border-amber-200',
+  };
+
+  return (
+    <div className="group bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-300">
+      <div>
+        <p className="font-bold text-[#0A2540] text-base tabular-nums">{slot.startTime} &ndash; {slot.endTime}</p>
+        <p className="text-xs text-slate-400 mt-0.5 font-medium">${slot.clinic_fee} &middot; {slot.slotDuration} min</p>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <span className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-full tracking-wide ${badgeStyle[slot.status] || 'text-slate-500 bg-slate-100 border border-slate-200'}`}>
+          {slot.status}
+        </span>
+        {slot.status === 'available' && (
+          <button
+            onClick={() => onDelete(slot._id)}
+            className="border border-red-200 text-red-500 rounded-xl px-3 py-1.5 text-xs font-bold hover:bg-red-50 hover:border-red-300 transition-all"
+          >
+            Delete
+          </button>
+        )}
+      </div>
+    </div>
+  );
 };
 
+// ── Main Component ─────────────────────────────────────────────────────────────
 const MySchedule = () => {
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -71,130 +192,156 @@ const MySchedule = () => {
   const activeDateKey = selectedDate || sortedDates[0] || null;
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center text-slate-500 font-medium">
-      Loading your schedule...
+    <div className="min-h-screen bg-[#F4F7F9] flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-12 h-12 border-4 border-[#00B4A0] border-t-transparent rounded-full animate-spin" />
+        <p className="text-slate-500 font-medium text-sm">Loading your schedule...</p>
+      </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen bg-[#F4F7F9] flex">
+      <Sidebar active="schedule" />
 
-        <div className="mb-6">
-          <Link to="/doctor-dashboard" className="inline-flex items-center text-slate-500 hover:text-teal-600 transition-colors font-medium">
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Back to Dashboard
-          </Link>
-        </div>
+      <main className="ml-64 flex-1 p-8">
 
-        <div className="flex justify-between items-center mb-8">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-slate-800">My Schedule</h1>
-            <p className="text-slate-500 mt-1">Manage your upcoming availability.</p>
+            <p className="text-xs font-bold text-[#00B4A0] uppercase tracking-widest mb-1">Doctor Portal</p>
+            <h1 className="text-3xl font-extrabold text-[#0A2540] tracking-tight">My Schedule</h1>
+            <p className="text-slate-500 mt-1 text-sm">Manage your upcoming availability slots.</p>
           </div>
-          <div className="bg-white px-4 py-2 rounded-lg shadow-sm text-sm font-semibold text-slate-600 border border-slate-200">
-            Total Slots: <span className="text-teal-600 font-bold text-lg ml-1">{schedules.length}</span>
+          <div className="bg-white px-5 py-3.5 rounded-2xl shadow-sm border border-slate-100 text-sm font-semibold text-slate-500 flex-shrink-0 flex items-center gap-2">
+            Total Slots:
+            <span className="text-[#00B4A0] font-extrabold text-xl">{schedules.length}</span>
           </div>
         </div>
 
         {error && (
-          <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-6 border border-red-100">{error}</div>
+          <div className="flex items-center gap-3 bg-red-50 text-red-600 p-4 rounded-2xl mb-6 border border-red-100 text-sm font-medium">
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {error}
+          </div>
         )}
 
+        {/* Empty State */}
         {!loading && schedules.length === 0 && !error && (
-          <div className="text-center py-20 bg-white rounded-xl shadow-sm border border-dashed border-slate-200">
-            <svg className="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <h3 className="text-lg font-medium text-slate-900">No Upcoming Schedule</h3>
-            <p className="text-slate-500 mt-1 mb-4">You haven't added any slots yet.</p>
-            <Link to="/doctor/schedule/create" className="text-teal-600 font-bold hover:underline">
-              Create Schedule →
+          <div className="text-center py-24 bg-white rounded-2xl shadow-sm border border-slate-100">
+            <div className="w-20 h-20 bg-[#00B4A0]/10 rounded-2xl flex items-center justify-center mx-auto mb-5">
+              <svg className="w-10 h-10 text-[#00B4A0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-extrabold text-[#0A2540]">No Upcoming Schedule</h3>
+            <p className="text-slate-400 mt-2 text-sm mb-6">You haven't added any availability slots yet.</p>
+            <Link
+              to="/doctor/schedule/create"
+              className="inline-block bg-[#0A2540] hover:bg-slate-800 text-white rounded-xl px-6 py-3 text-sm font-bold transition-all"
+            >
+              Create Schedule
             </Link>
           </div>
         )}
 
+        {/* Date Filter + Slot Grid */}
         {sortedDates.length > 0 && (
           <div className="flex gap-6">
 
-            {/* Date Sidebar */}
-            <div className="w-48 flex-shrink-0 space-y-2">
-              {sortedDates.map(dateKey => {
-                const isActive = dateKey === activeDateKey;
-                const slotCount = grouped[dateKey].length;
-                return (
-                  <button
-                    key={dateKey}
-                    onClick={() => setSelectedDate(dateKey)}
-                    className={`w-full text-left px-4 py-3 rounded-xl border transition-all font-medium text-sm
-                      ${isActive
-                        ? 'bg-slate-800 text-white border-slate-800 shadow-md'
-                        : 'bg-white text-slate-600 border-slate-200 hover:border-teal-300 hover:bg-teal-50'
+            {/* Date filter sidebar */}
+            <div className="w-52 flex-shrink-0">
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-1.5">
+                <p className="text-xs font-bold text-[#00B4A0] uppercase tracking-widest mb-3">Filter by Date</p>
+
+                {/* All Dates */}
+                <button
+                  onClick={() => setSelectedDate(null)}
+                  className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                    !selectedDate
+                      ? 'bg-[#0A2540] text-white shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  All Dates
+                </button>
+
+                {sortedDates.map(dateKey => {
+                  const isActive = dateKey === activeDateKey && selectedDate !== null;
+                  const slotCount = grouped[dateKey].length;
+                  return (
+                    <button
+                      key={dateKey}
+                      onClick={() => setSelectedDate(dateKey)}
+                      className={`w-full text-left px-4 py-2.5 rounded-xl transition-all text-sm font-semibold ${
+                        isActive
+                          ? 'bg-[#0A2540] text-white shadow-sm'
+                          : 'text-slate-600 hover:bg-slate-50'
                       }`}
-                  >
-                    <div className="font-bold">
-                      {new Date(dateKey + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </div>
-                    <div className={`text-xs mt-0.5 ${isActive ? 'text-slate-300' : 'text-slate-400'}`}>
-                      {new Date(dateKey + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' })} · {slotCount} slot{slotCount !== 1 ? 's' : ''}
-                    </div>
-                  </button>
-                );
-              })}
+                    >
+                      <div className="font-bold">
+                        {new Date(dateKey + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </div>
+                      <div className={`text-xs mt-0.5 ${isActive ? 'text-white/60' : 'text-slate-400'}`}>
+                        {new Date(dateKey + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' })} &middot; {slotCount} slot{slotCount !== 1 ? 's' : ''}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Slots Panel */}
-            <div className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-              {activeDateKey && (
-                <>
-                  <div className="bg-slate-800 px-6 py-4 flex justify-between items-center">
-                    <h3 className="text-white font-bold text-lg">{formatDateLabel(activeDateKey + 'T00:00:00')}</h3>
-                    <span className="text-xs bg-slate-700 text-slate-200 px-3 py-1 rounded-full">
-                      {grouped[activeDateKey].length} slot(s)
-                    </span>
+            {/* Slots grid */}
+            <div className="flex-1 min-w-0">
+              {selectedDate === null ? (
+                // Show all dates
+                <div className="space-y-6">
+                  {sortedDates.map(dateKey => (
+                    <div key={dateKey} className="rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                      {/* Date group header */}
+                      <div className="bg-[#0A2540] px-6 py-4 flex justify-between items-center">
+                        <h3 className="text-white font-bold text-sm">{formatDateLabel(dateKey + 'T00:00:00')}</h3>
+                        <span className="text-xs bg-[#00B4A0]/20 text-[#00B4A0] font-bold px-3 py-1 rounded-full border border-[#00B4A0]/30">
+                          {grouped[dateKey].length} slot{grouped[dateKey].length !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      <div className="bg-white p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {grouped[dateKey]
+                          .sort((a, b) => a.startTime.localeCompare(b.startTime))
+                          .map(slot => (
+                            <SlotCard key={slot._id} slot={slot} onDelete={handleDelete} />
+                          ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                activeDateKey && (
+                  <div className="rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                    <div className="bg-[#0A2540] px-6 py-4 flex justify-between items-center">
+                      <h3 className="text-white font-bold">{formatDateLabel(activeDateKey + 'T00:00:00')}</h3>
+                      <span className="text-xs bg-[#00B4A0]/20 text-[#00B4A0] font-bold px-3 py-1 rounded-full border border-[#00B4A0]/30">
+                        {grouped[activeDateKey].length} slot{grouped[activeDateKey].length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <div className="bg-white p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {grouped[activeDateKey]
+                        .sort((a, b) => a.startTime.localeCompare(b.startTime))
+                        .map(slot => (
+                          <SlotCard key={slot._id} slot={slot} onDelete={handleDelete} />
+                        ))}
+                    </div>
                   </div>
-
-                  <div className="p-6 space-y-3">
-                    {grouped[activeDateKey]
-                      .sort((a, b) => a.startTime.localeCompare(b.startTime))
-                      .map(slot => (
-                        <div
-                          key={slot._id}
-                          className="flex justify-between items-center p-4 rounded-xl border border-slate-100 hover:border-slate-200 bg-slate-50 transition"
-                        >
-                          <div>
-                            <p className="font-bold text-slate-700">{slot.startTime} – {slot.endTime}</p>
-                            <p className="text-xs text-slate-500 mt-0.5">${slot.clinic_fee} · {slot.slotDuration} min</p>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${statusStyle[slot.status] || 'text-slate-500 bg-slate-100'}`}>
-                              {slot.status}
-                            </span>
-                            {slot.status === 'available' && (
-                              <button
-                                onClick={() => handleDelete(slot._id)}
-                                className="text-slate-400 hover:text-red-500 transition"
-                                title="Delete slot"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </>
+                )
               )}
             </div>
 
           </div>
         )}
-
-      </div>
+      </main>
     </div>
   );
 };

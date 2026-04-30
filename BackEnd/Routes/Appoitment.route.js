@@ -1,15 +1,16 @@
 const express = require('express');
 
-const { 
-  Show_Appoitment_Sechdule, 
-  Book_Appointment, 
-  My_Appointments, 
+const {
+  Show_Appoitment_Sechdule,
+  Book_Appointment,
+  My_Appointments,
   Doctor_Appointments,
   Get_Video_Token,
   Validate_And_Join_Meeting,
   Reschedule_Appointment,
   Redeem_Reschedule,
-  End_Meeting_Early
+  End_Meeting_Early,
+  Doctor_Dashboard_Stats,
 } = require('../Controlers/Appoitment.controller');
 
 const Patient_Check = require('../MiddleWare/Patient.middleware');
@@ -22,6 +23,7 @@ Apppoitment_Routes.get('/Show_Appoitment_Sechdule/:id', Show_Appoitment_Sechdule
 Apppoitment_Routes.post('/Book_Appointment/:id', Patient_Check, Book_Appointment);
 Apppoitment_Routes.get('/My_Appointments', Patient_Check, My_Appointments);
 Apppoitment_Routes.get('/Doctor_Appointments', Doctor_Check, Doctor_Appointments);
+Apppoitment_Routes.get('/doctor/dashboard-stats', Doctor_Check, Doctor_Dashboard_Stats);
 Apppoitment_Routes.get('/get-video-token', Get_Video_Token);
 
 // join-meeting now requires auth so we can identify who is joining

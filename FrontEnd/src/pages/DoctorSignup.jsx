@@ -2,12 +2,10 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-// setRole no longer needed — auth is verified via cookie
-const DoctorSignup = () => {
-  const API_URL = `${import.meta.env.VITE_API_URL}/D_SignUp`;
+const DoctorSignup = ({ setRole }) => {
+  const API_URL = 'http://localhost:4000/D_SignUp';
   const navigate = useNavigate();
 
-  // --- STATE MANAGEMENT ---
   const [formData, setFormData] = useState({
     first_Name: '',
     last_Name: '',
@@ -15,17 +13,17 @@ const DoctorSignup = () => {
     ph: '',
     password: '',
     speciality: '',
+    experience: '',
   });
 
-  const [degrees, setDegrees] = useState([]); 
-  const [degreeInput, setDegreeInput] = useState(''); 
-  const [file, setFile] = useState(null); 
-  const [preview, setPreview] = useState(null); 
-  
+  const [degrees, setDegrees] = useState([]);
+  const [degreeInput, setDegreeInput] = useState('');
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [showPassword, setShowPassword] = useState(false);
 
-  // --- HANDLERS ---
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -51,8 +49,8 @@ const DoctorSignup = () => {
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault(); 
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
       addDegree();
     }
   };
@@ -70,23 +68,27 @@ const DoctorSignup = () => {
 
     try {
       const data = new FormData();
-      Object.keys(formData).forEach(key => data.append(key, formData[key]));
-      data.append('degrees', JSON.stringify(degrees)); 
+      Object.keys(formData).forEach((key) => data.append(key, formData[key]));
+      data.append('degrees', JSON.stringify(degrees));
       if (file) data.append('profile_Picture', file);
 
-      // 👇 2. Add withCredentials so the cookie is saved
       const response = await axios.post(API_URL, data, {
         headers: { 'Content-Type': 'multipart/form-data' },
-        withCredentials: true 
+        withCredentials: true,
       });
 
       if (response.data.success) {
         setMessage({ type: 'success', text: 'Registration Successful! Entering Dashboard...' });
-        localStorage.setItem('doctorName', formData.first_Name);
-        localStorage.setItem('doctorSpeciality', formData.speciality);
-        setTimeout(() => navigate('/doctor-dashboard'), 1000);
-      }
 
+        if (response.data.login) {
+          setRole('doctor');
+          localStorage.setItem('doctorName', formData.first_Name);
+          localStorage.setItem('doctorSpeciality', formData.speciality);
+          setTimeout(() => navigate('/doctor-dashboard'), 1500);
+        } else {
+          setTimeout(() => navigate('/login'), 2000);
+        }
+      }
     } catch (error) {
       console.error('Signup Error:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Something went wrong';
@@ -96,99 +98,289 @@ const DoctorSignup = () => {
     }
   };
 
+  const inputCls =
+    'w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#00B4A0] focus:border-[#00B4A0] text-slate-700 outline-none transition bg-slate-50 focus:bg-white';
+  const labelCls = 'block text-sm font-bold text-[#0A2540] mb-1.5';
+
   return (
-    <div className="min-h-screen flex bg-slate-50 font-sans">
-      
-      {/* --- LEFT SIDE: BRANDING --- */}
-      <div className="hidden lg:flex w-5/12 bg-teal-700 relative overflow-hidden flex-col justify-center px-12 text-white">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-teal-600 rounded-full blur-3xl opacity-50 -mr-20 -mt-20"></div>
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-emerald-500 rounded-full blur-3xl opacity-30 -ml-10 -mb-10"></div>
-        
+    <div className="min-h-screen flex font-sans">
+      <style>{`
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(24px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .fade-up { animation: fadeUp 0.55s ease both; }
+        @keyframes chipIn {
+          from { opacity: 0; transform: scale(0.85); }
+          to   { opacity: 1; transform: scale(1); }
+        }
+        .chip-in { animation: chipIn 0.2s ease both; }
+      `}</style>
+
+      {/* ── LEFT PANEL ── */}
+      <div className="hidden lg:flex lg:w-1/2 bg-[#0A2540] relative overflow-hidden flex-col justify-between p-14">
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage:
+              'linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)',
+            backgroundSize: '48px 48px',
+            opacity: 0.04,
+          }}
+        />
+        <div className="absolute top-[-80px] right-[-80px] w-[500px] h-[500px] bg-[#00B4A0]/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-60px] left-[-60px] w-[400px] h-[400px] bg-[#00B4A0]/8 rounded-full blur-[100px]" />
+
+        {/* Brand */}
         <div className="relative z-10">
-            <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm mb-8 border border-white/20">
-                <svg className="w-8 h-8 text-teal-100" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
-            </div>
-            <h1 className="text-5xl font-extrabold mb-6 tracking-tight leading-tight">Join Our <br/> Network</h1>
-            <p className="text-teal-100 text-lg font-light leading-relaxed mb-8">
-                Connect with thousands of patients, manage your schedule effortlessly, and grow your practice with our digital tools.
-            </p>
+          <div className="text-3xl font-extrabold tracking-tight text-white">
+            Medicare<span className="text-[#00B4A0]">AI</span>
+          </div>
+        </div>
+
+        {/* Centre content */}
+        <div className="relative z-10 flex-1 flex flex-col justify-center py-12">
+          <p className="text-xs font-bold text-[#00B4A0] uppercase tracking-widest mb-4">Doctor Registration</p>
+          <h2 className="text-5xl font-extrabold text-white tracking-tight leading-tight mb-6">
+            Join our network<br />of top doctors.
+          </h2>
+          <p className="text-slate-400 text-lg leading-relaxed mb-10">
+            Connect with thousands of patients, manage your schedule effortlessly, and grow your practice with our intelligent platform.
+          </p>
+
+          <ul className="space-y-4 mb-12">
+            {[
+              'Manage schedule with 15-min precision',
+              'AI pre-assessment summaries per patient',
+              'Integrated secure video consultations',
+              'Auto-generated post-call clinical notes',
+            ].map((item) => (
+              <li key={item} className="flex items-center gap-3">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#00B4A0]/20 flex items-center justify-center">
+                  <svg className="w-3 h-3 text-[#00B4A0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                  </svg>
+                </span>
+                <span className="text-slate-300 text-sm font-medium">{item}</span>
+              </li>
+            ))}
+          </ul>
+
+          <div className="flex gap-8">
+            {[
+              { value: '500+', label: 'Doctors Active' },
+              { value: '10k+', label: 'Appointments' },
+              { value: '4.9★', label: 'Avg Rating' },
+            ].map((s) => (
+              <div key={s.label}>
+                <div className="text-2xl font-extrabold text-white">{s.value}</div>
+                <div className="text-xs text-slate-500 mt-0.5">{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="relative z-10">
+          <svg viewBox="0 0 400 40" className="w-full opacity-10" preserveAspectRatio="none">
+            <path d="M0,20 C100,40 300,0 400,20 L400,40 L0,40 Z" fill="#00B4A0" />
+          </svg>
         </div>
       </div>
 
-      {/* --- RIGHT SIDE: FORM --- */}
-      <div className="w-full lg:w-7/12 flex items-center justify-center p-6 py-12 overflow-y-auto">
-        <div className="w-full max-w-2xl bg-white p-8 md:p-10 rounded-3xl shadow-xl border border-slate-100">
-          
-          <div className="mb-8 text-center md:text-left">
-              <h2 className="text-3xl font-bold text-slate-800">Create Doctor Profile</h2>
-              <p className="text-slate-500 mt-2">Enter your credentials to start accepting appointments.</p>
-          </div>
-
-          {/* Alert Message */}
-          {message.text && (
-            <div className={`p-4 mb-8 rounded-xl text-sm font-medium flex items-center gap-3 ${message.type === 'error' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
-              {message.type === 'error' ? '⚠️' : '✅'} {message.text}
+      {/* ── RIGHT PANEL ── */}
+      <div className="w-full lg:w-1/2 bg-[#F4F7F9] flex items-center justify-center p-6 sm:p-10 overflow-y-auto">
+        <div className="w-full max-w-lg py-8">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-xl p-8 sm:p-10 fade-up">
+            {/* Logo */}
+            <div className="mb-6 text-center">
+              <span className="text-2xl font-extrabold tracking-tight text-[#0A2540]">
+                Medicare<span className="text-[#00B4A0]">AI</span>
+              </span>
             </div>
-          )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            
-            {/* 1. Profile Picture */}
-            <div className="flex flex-col items-center justify-center mb-8">
-                <div className="relative group cursor-pointer">
-                    <div className={`w-32 h-32 rounded-full overflow-hidden border-4 ${preview ? 'border-white shadow-lg' : 'border-slate-100 border-dashed bg-slate-50'} transition-all duration-300 relative`}>
-                        {preview ? (
-                            <img src={preview} alt="Preview" className="w-full h-full object-cover" />
-                        ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-slate-400 group-hover:text-teal-600 transition-colors">
-                                <svg className="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                                <span className="text-xs font-bold uppercase">Upload</span>
-                            </div>
-                        )}
-                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
-                            <span className="text-white text-xs font-bold">Change</span>
-                        </div>
+            <p className="text-xs font-bold text-[#00B4A0] uppercase tracking-widest mb-2 text-center">Doctor Portal</p>
+            <h1 className="text-3xl font-extrabold text-[#0A2540] tracking-tight text-center mb-1">Create Doctor Profile</h1>
+            <p className="text-slate-500 text-sm text-center mb-7">Enter your details to start accepting appointments.</p>
+
+            {/* Alert */}
+            {message.text && (
+              <div
+                className={`mb-5 flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold border ${
+                  message.type === 'error'
+                    ? 'bg-red-50 text-red-600 border-red-100'
+                    : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                }`}
+              >
+                {message.type === 'error' ? (
+                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                )}
+                {message.text}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+
+              {/* Profile Picture */}
+              <div className="flex flex-col items-center">
+                <div className="relative group cursor-pointer mb-1">
+                  <div
+                    className={`w-24 h-24 rounded-full overflow-hidden border-4 transition-all duration-300 relative ${
+                      preview ? 'border-[#00B4A0] shadow-lg shadow-[#00B4A0]/20' : 'border-slate-200 border-dashed bg-slate-50'
+                    }`}
+                  >
+                    {preview ? (
+                      <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full text-slate-400 group-hover:text-[#00B4A0] transition-colors">
+                        <svg className="w-7 h-7 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span className="text-xs font-bold uppercase">Upload</span>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
+                      <span className="text-white text-xs font-bold">Change</span>
                     </div>
-                    <input type="file" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/png, image/jpeg, image/jpg" />
+                  </div>
+                  <input
+                    type="file"
+                    onChange={handleFileChange}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    accept="image/png, image/jpeg, image/jpg"
+                  />
                 </div>
-                <p className="text-xs text-slate-400 mt-2">Recommended: Square JPG/PNG</p>
-            </div>
-
-            {/* 2. Names */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">First Name</label>
-                <input required type="text" name="first_Name" value={formData.first_Name} onChange={handleChange} placeholder="e.g. John"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition placeholder-slate-300 font-medium text-slate-700" />
+                <p className="text-xs text-slate-400">Profile photo (JPG/PNG)</p>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">Last Name</label>
-                <input required type="text" name="last_Name" value={formData.last_Name} onChange={handleChange} placeholder="e.g. Doe"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition placeholder-slate-300 font-medium text-slate-700" />
+
+              {/* First & Last Name */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={labelCls}>First Name</label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </span>
+                    <input
+                      required
+                      type="text"
+                      name="first_Name"
+                      value={formData.first_Name}
+                      onChange={handleChange}
+                      placeholder="John"
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelCls}>Last Name</label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </span>
+                    <input
+                      required
+                      type="text"
+                      name="last_Name"
+                      value={formData.last_Name}
+                      onChange={handleChange}
+                      placeholder="Doe"
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
 
-            {/* 3. Contact Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">Email Address</label>
-                    <input required type="email" name="email" value={formData.email} onChange={handleChange} placeholder="doctor@hospital.com"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition placeholder-slate-300 font-medium text-slate-700" />
+              {/* Email */}
+              <div>
+                <label className={labelCls}>Email Address</label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </span>
+                  <input
+                    required
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder="doctor@hospital.com"
+                    className={inputCls}
+                  />
                 </div>
-                <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">Phone Number</label>
-                    <input required type="tel" name="ph" value={formData.ph} onChange={handleChange} placeholder="+1 234 567 890"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition placeholder-slate-300 font-medium text-slate-700" />
-                </div>
-            </div>
+              </div>
 
-            {/* 4. Speciality */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">Speciality</label>
-              <div className="relative">
-                <select required name="speciality" value={formData.speciality} onChange={handleChange}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition appearance-none font-medium text-slate-700">
-                    <option value="">Select your area of expertise...</option>
+              {/* Phone & Experience */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={labelCls}>Phone Number</label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                      </svg>
+                    </span>
+                    <input
+                      required
+                      type="tel"
+                      name="ph"
+                      value={formData.ph}
+                      onChange={handleChange}
+                      placeholder="+1 234 567 890"
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelCls}>Experience (yrs)</label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </span>
+                    <input
+                      type="number"
+                      name="experience"
+                      min="0"
+                      value={formData.experience}
+                      onChange={handleChange}
+                      placeholder="e.g. 5"
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Speciality */}
+              <div>
+                <label className={labelCls}>Speciality</label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                  </span>
+                  <select
+                    required
+                    name="speciality"
+                    value={formData.speciality}
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#00B4A0] focus:border-[#00B4A0] text-slate-700 outline-none transition bg-slate-50 focus:bg-white appearance-none cursor-pointer"
+                  >
+                    <option value="">Select your speciality...</option>
                     <option value="Cardiologist">Cardiologist</option>
                     <option value="Dermatologist">Dermatologist</option>
                     <option value="Neurologist">Neurologist</option>
@@ -196,70 +388,124 @@ const DoctorSignup = () => {
                     <option value="General Surgeon">General Surgeon</option>
                     <option value="Psychiatrist">Psychiatrist</option>
                     <option value="Orthopedic">Orthopedic</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
-                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* 5. Qualifications */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">Qualifications / Degrees</label>
-              <div className="min-h-[56px] px-2 py-2 bg-slate-50 border border-slate-200 rounded-xl focus-within:bg-white focus-within:ring-2 focus-within:ring-teal-500 focus-within:border-teal-500 transition flex flex-wrap gap-2 items-center">
-                {degrees.map((deg, index) => (
-                  <span key={index} className="bg-white border border-teal-200 text-teal-700 text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-2 shadow-sm animate-fade-in">
-                    {deg}
-                    <button type="button" onClick={() => removeDegree(index)} className="hover:text-red-500 focus:outline-none flex items-center justify-center bg-teal-50 hover:bg-red-50 rounded-full w-4 h-4 transition-colors">
-                         &times;
-                    </button>
-                  </span>
-                ))}
-                <input 
-                  type="text" 
-                  value={degreeInput} 
-                  onChange={(e) => setDegreeInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={degrees.length > 0 ? "Add another..." : "Type degree (e.g. MBBS) & press Enter"}
-                  className="flex-1 bg-transparent outline-none text-sm text-slate-700 placeholder-slate-400 px-2 min-w-[150px]" 
-                />
-                <button type="button" onClick={addDegree} className={`text-xs font-bold uppercase px-3 py-1.5 rounded-lg transition-colors ${degreeInput.trim() ? 'bg-teal-600 text-white hover:bg-teal-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
-                  Add
-                </button>
-              </div>
-            </div>
-
-            {/* 6. Password */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">Password</label>
-              <input required type="password" name="password" value={formData.password} onChange={handleChange} placeholder="Create a secure password"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition placeholder-slate-300 font-medium text-slate-700" />
-            </div>
-
-            {/* 7. Submit */}
-            <div className="pt-4">
-                <button 
-                type="submit" 
-                disabled={loading}
-                className={`w-full py-4 rounded-xl text-white font-bold text-lg shadow-xl shadow-teal-500/20 transition-all duration-300 transform 
-                    ${loading ? 'bg-teal-400 cursor-not-allowed' : 'bg-teal-600 hover:bg-teal-700 hover:-translate-y-1 active:scale-95'}`}
-                >
-                {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                        Creating Profile...
+              {/* Degrees Tag Input */}
+              <div>
+                <label className={labelCls}>
+                  Qualifications / Degrees
+                  <span className="text-xs font-normal text-slate-400 ml-2">Press Enter or comma to add</span>
+                </label>
+                <div className="min-h-[52px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus-within:bg-white focus-within:ring-2 focus-within:ring-[#00B4A0] focus-within:border-[#00B4A0] transition flex flex-wrap gap-2 items-center">
+                  {degrees.map((deg, index) => (
+                    <span
+                      key={index}
+                      className="chip-in bg-[#00B4A0]/10 border border-[#00B4A0]/30 text-[#0A2540] text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5"
+                    >
+                      {deg}
+                      <button
+                        type="button"
+                        onClick={() => removeDegree(index)}
+                        className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-red-100 hover:text-red-500 text-slate-400 transition-colors leading-none"
+                        aria-label="Remove"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
                     </span>
-                ) : 'Complete Registration'}
-                </button>
-            </div>
-            
-            <div className="text-center">
-                <p className="text-sm text-slate-500">
-                Already registered? <a href="/login" className="text-teal-600 font-bold hover:underline">Sign in to Dashboard</a>
-                </p>
-            </div>
+                  ))}
+                  <input
+                    type="text"
+                    value={degreeInput}
+                    onChange={(e) => setDegreeInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={degrees.length > 0 ? 'Add another...' : 'Type degree (e.g. MBBS) & press Enter'}
+                    className="flex-1 bg-transparent outline-none text-sm text-slate-700 placeholder-slate-400 px-1 min-w-[140px] py-1"
+                  />
+                  {degreeInput.trim() && (
+                    <button
+                      type="button"
+                      onClick={addDegree}
+                      className="text-xs font-bold px-3 py-1.5 rounded-lg bg-[#00B4A0] text-white hover:bg-teal-400 transition-colors"
+                    >
+                      Add
+                    </button>
+                  )}
+                </div>
+              </div>
 
-          </form>
+              {/* Password */}
+              <div>
+                <label className={labelCls}>Password</label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </span>
+                  <input
+                    required
+                    type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Create a secure password"
+                    className="w-full pl-10 pr-10 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#00B4A0] focus:border-[#00B4A0] text-slate-700 outline-none transition bg-slate-50 focus:bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+                  >
+                    {showPassword ? (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-[#00B4A0] text-white rounded-xl font-bold py-3.5 hover:bg-teal-400 hover:-translate-y-0.5 transition-all duration-200 shadow-lg shadow-[#00B4A0]/20 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none mt-2"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Creating Profile...
+                  </span>
+                ) : (
+                  'Complete Registration'
+                )}
+              </button>
+            </form>
+
+            <p className="mt-7 text-center text-sm text-slate-500">
+              Already registered?{' '}
+              <a href="/login" className="font-bold text-[#00B4A0] hover:text-teal-400 transition">
+                Sign in to Dashboard
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     </div>

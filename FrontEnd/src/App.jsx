@@ -11,6 +11,11 @@ import ScheduleGenerator from './pages/ScheduleGenerator';
 import DoctorAppointments from './pages/DoctorAppointments';
 import MySchedule from './pages/MySchedule';
 import VideoCall from './pages/VideoCall';
+import DoctorEditProfile from './pages/DoctorEditProfile';
+
+// --- ADMIN PAGES ---
+import AdminLogin from './pages/AdminLogin';
+import AdminDashboard from './pages/AdminDashboard';
 
 // --- PATIENT PAGES ---
 import PatientSignup from './pages/PatientSignup';
@@ -93,6 +98,7 @@ function App() {
         <Route path="/doctor/schedule/create"  element={<DoctorRoute><ScheduleGenerator /></DoctorRoute>} />
         <Route path="/doctor/schedule"         element={<DoctorRoute><MySchedule /></DoctorRoute>} />
         <Route path="/doctor/appointments"     element={<DoctorRoute><DoctorAppointments /></DoctorRoute>} />
+        <Route path="/doctor/edit-profile"    element={<DoctorRoute><DoctorEditProfile /></DoctorRoute>} />
 
         {/* ── Patient Private ── */}
         <Route path="/patient/dashboard"       element={<PatientRoute><PatientDashboard /></PatientRoute>} />
@@ -103,6 +109,10 @@ function App() {
 
         {/* ── Video call — requires any authenticated user ── */}
         <Route path="/room/:roomId" element={<AnyRoute><VideoCall /></AnyRoute>} />
+
+        {/* ── Admin ── */}
+        <Route path="/admin/login" element={<AdminLogin />} />
+        <Route path="/admin" element={<AdminDashboard />} />
 
         {/* ── Catch-all ── */}
         <Route path="*" element={<Navigate to="/" replace />} />

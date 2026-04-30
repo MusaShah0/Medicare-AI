@@ -11,7 +11,6 @@ const toDateStr = (d) => {
 };
 
 const todayStr = toDateStr(new Date());
-
 const isPastDate = (dateStr) => dateStr < todayStr;
 
 const formatDateLabel = (dateStr) =>
@@ -19,33 +18,118 @@ const formatDateLabel = (dateStr) =>
     weekday: 'short', month: 'short', day: 'numeric'
   });
 
-// ── Inline multi-select calendar ──────────────────────────────────────────────
+// ── Sidebar ────────────────────────────────────────────────────────────────────
+const Sidebar = ({ active }) => (
+  <aside className="bg-[#0A2540] w-64 fixed inset-y-0 left-0 flex flex-col z-20">
+    <div className="px-6 py-6 border-b border-white/10">
+      <span className="text-white font-extrabold text-xl tracking-tight">
+        Medi<span className="text-[#00B4A0]">Care</span> AI
+      </span>
+    </div>
+    <nav className="flex-1 px-4 py-6 space-y-1">
+      <Link
+        to="/doctor-dashboard"
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all border-l-2 ${
+          active === 'dashboard'
+            ? 'bg-white/15 text-white font-semibold border-[#00B4A0]'
+            : 'text-white/70 hover:text-white hover:bg-white/10 border-transparent'
+        }`}
+      >
+        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+        Dashboard
+      </Link>
+      <Link
+        to="/doctor/appointments"
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all border-l-2 ${
+          active === 'appointments'
+            ? 'bg-white/15 text-white font-semibold border-[#00B4A0]'
+            : 'text-white/70 hover:text-white hover:bg-white/10 border-transparent'
+        }`}
+      >
+        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        Appointments
+      </Link>
+      <Link
+        to="/doctor/schedule"
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all border-l-2 ${
+          active === 'schedule'
+            ? 'bg-white/15 text-white font-semibold border-[#00B4A0]'
+            : 'text-white/70 hover:text-white hover:bg-white/10 border-transparent'
+        }`}
+      >
+        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+        My Schedule
+      </Link>
+      <Link
+        to="/doctor/schedule/create"
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all border-l-2 ${
+          active === 'create'
+            ? 'bg-white/15 text-white font-semibold border-[#00B4A0]'
+            : 'text-white/70 hover:text-white hover:bg-white/10 border-transparent'
+        }`}
+      >
+        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+        </svg>
+        Create Schedule
+      </Link>
+
+      <Link
+        to="/doctor/edit-profile"
+        className="flex items-center gap-3 px-4 py-2.5 rounded-xl transition text-sm font-medium border-l-2 border-transparent text-white/70 hover:text-white hover:bg-white/10"
+      >
+        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+        Edit Profile
+      </Link>
+    </nav>
+    <div className="px-4 pb-6">
+      <Link
+        to="/logout"
+        className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-white/50 hover:text-white/80 hover:bg-white/10 transition text-sm font-medium border-l-2 border-transparent"
+      >
+        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+        </svg>
+        Logout
+      </Link>
+    </div>
+  </aside>
+);
+
+// ── CalendarPicker ─────────────────────────────────────────────────────────────
 const DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-const MONTHS = ['January','February','March','April','May','June',
-                'July','August','September','October','November','December'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'];
 
 const CalendarPicker = ({ selectedDates, onToggle }) => {
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
-  const [viewMonth, setViewMonth] = useState(today.getMonth()); // 0-indexed
+  const [viewMonth, setViewMonth] = useState(today.getMonth());
 
   const prevMonth = () => {
     if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
     else setViewMonth(m => m - 1);
   };
-
   const nextMonth = () => {
     if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
     else setViewMonth(m => m + 1);
   };
 
-  // Can't go before current month
   const isCurrentMonth = viewYear === today.getFullYear() && viewMonth === today.getMonth();
-
-  // Build grid: leading blanks + days of month
-  const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay(); // 0=Sun
+  const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-
   const cells = [
     ...Array(firstDayOfWeek).fill(null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1)
@@ -54,24 +138,22 @@ const CalendarPicker = ({ selectedDates, onToggle }) => {
   return (
     <div className="select-none">
       {/* Month navigation */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-5">
         <button
           onClick={prevMonth}
           disabled={isCurrentMonth}
-          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
+          className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition border border-slate-100"
         >
           <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-
-        <span className="text-sm font-bold text-slate-700">
+        <span className="text-sm font-extrabold text-[#0A2540]">
           {MONTHS[viewMonth]} {viewYear}
         </span>
-
         <button
           onClick={nextMonth}
-          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition"
+          className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-slate-50 transition border border-slate-100"
         >
           <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
@@ -80,7 +162,7 @@ const CalendarPicker = ({ selectedDates, onToggle }) => {
       </div>
 
       {/* Day-of-week headers */}
-      <div className="grid grid-cols-7 mb-1">
+      <div className="grid grid-cols-7 mb-2">
         {DAYS.map(d => (
           <div key={d} className="text-center text-[10px] font-bold text-slate-400 uppercase py-1">{d}</div>
         ))}
@@ -102,11 +184,11 @@ const CalendarPicker = ({ selectedDates, onToggle }) => {
               disabled={past}
               onClick={() => !past && onToggle(dateStr)}
               className={`
-                mx-auto w-8 h-8 rounded-full text-xs font-semibold transition-all duration-150 flex items-center justify-center
+                mx-auto w-9 h-9 rounded-xl text-xs font-semibold transition-all duration-150 flex items-center justify-center
                 ${past ? 'text-slate-300 cursor-not-allowed' : ''}
-                ${!past && !selected && !isToday ? 'text-slate-700 hover:bg-teal-50 hover:text-teal-700' : ''}
-                ${isToday && !selected ? 'ring-2 ring-teal-400 text-teal-600' : ''}
-                ${selected ? 'bg-teal-600 text-white shadow-md shadow-teal-200' : ''}
+                ${!past && !selected && !isToday ? 'text-slate-700 hover:bg-[#00B4A0]/10 hover:text-[#00B4A0]' : ''}
+                ${isToday && !selected ? 'bg-[#0A2540] text-white font-bold shadow-sm' : ''}
+                ${selected ? 'bg-[#00B4A0] text-white shadow-sm shadow-teal-200' : ''}
               `}
             >
               {day}
@@ -116,11 +198,11 @@ const CalendarPicker = ({ selectedDates, onToggle }) => {
       </div>
 
       {selectedDates.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
-          <span className="text-xs text-teal-600 font-semibold">{selectedDates.length} date(s) selected</span>
+        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+          <span className="text-xs font-bold text-[#00B4A0]">{selectedDates.length} date{selectedDates.length !== 1 ? 's' : ''} selected</span>
           <button
             onClick={() => selectedDates.forEach(d => onToggle(d))}
-            className="text-xs text-slate-400 hover:text-red-500 transition font-medium"
+            className="text-xs text-slate-400 hover:text-red-500 transition font-semibold"
           >
             Clear all
           </button>
@@ -130,6 +212,7 @@ const CalendarPicker = ({ selectedDates, onToggle }) => {
   );
 };
 
+// ── ScheduleGenerator ──────────────────────────────────────────────────────────
 const ScheduleGenerator = () => {
   const [setup, setSetup] = useState({
     startTime: '09:00',
@@ -211,7 +294,6 @@ const ScheduleGenerator = () => {
       const response = await axios.post(`${import.meta.env.VITE_API_URL}/Add_Sechdule`, payload, {
         withCredentials: true
       });
-      // 201 success
       setMessage({ type: 'success', text: `Schedule added successfully (${response.data.count} slot${response.data.count !== 1 ? 's' : ''} created)` });
       setGeneratedSlots([]);
       setSelectedDates([]);
@@ -220,10 +302,8 @@ const ScheduleGenerator = () => {
       const status = error.response?.status;
 
       if (status === 409 && data?.conflicts?.length) {
-        // Conflict: existing slots — keep form intact
         setMessage({ type: 'conflict', conflicts: data.conflicts });
       } else if (status === 400 && data?.invalidDates?.length) {
-        // Past dates
         setMessage({ type: 'pastDates', invalidDates: data.invalidDates });
       } else {
         setMessage({ type: 'error', text: data?.message || 'Failed to save schedule' });
@@ -233,237 +313,257 @@ const ScheduleGenerator = () => {
     }
   };
 
-  const InputWrapper = ({ label, icon, children }) => (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">{label}</label>
-      <div className="relative group">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-teal-500 transition-colors">
-          {icon}
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-
   return (
-    <div className="max-w-5xl mx-auto py-8 px-4">
+    <div className="min-h-screen bg-[#F4F7F9] flex">
+      <Sidebar active="create" />
 
-      <div className="mb-6">
-        <Link to="/doctor-dashboard" className="inline-flex items-center text-slate-500 hover:text-teal-600 transition-colors">
-          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Back to Dashboard
-        </Link>
-      </div>
+      <main className="ml-64 flex-1 p-8">
 
-      <div className="mb-8">
-        <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Schedule Manager</h1>
-        <p className="text-slate-500 mt-2 text-lg">Pick specific dates and define your consultation slots.</p>
-      </div>
-
-      {/* ── Message Banner ── */}
-      {message && (
-        <div className={`mb-6 rounded-xl border shadow-sm overflow-hidden ${
-          message.type === 'success'   ? 'bg-emerald-50 border-emerald-200' :
-          message.type === 'conflict'  ? 'bg-rose-50 border-rose-200' :
-          message.type === 'pastDates' ? 'bg-amber-50 border-amber-200' :
-                                         'bg-red-50 border-red-200'
-        }`}>
-          {/* Simple text messages */}
-          {(message.type === 'error' || message.type === 'success') && (
-            <div className="flex items-center gap-3 p-4">
-              {message.type === 'success'
-                ? <svg className="w-5 h-5 flex-shrink-0 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                : <svg className="w-5 h-5 flex-shrink-0 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              }
-              <span className={`font-medium text-sm ${message.type === 'success' ? 'text-emerald-700' : 'text-red-600'}`}>
-                {message.text}
-              </span>
-            </div>
-          )}
-
-          {/* Past dates (400) */}
-          {message.type === 'pastDates' && (
-            <div className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <svg className="w-5 h-5 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                <p className="font-bold text-amber-800 text-sm">Cannot add schedule for past dates:</p>
-              </div>
-              <ul className="ml-7 space-y-0.5">
-                {message.invalidDates.map(d => (
-                  <li key={d} className="text-sm text-amber-700">
-                    • {new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Conflicts (409) */}
-          {message.type === 'conflict' && (
-            <div className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <svg className="w-5 h-5 text-rose-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
-                <p className="font-bold text-rose-800 text-sm">The following slots already exist and were not added:</p>
-              </div>
-              <ul className="ml-7 space-y-0.5">
-                {message.conflicts.map((c, i) => {
-                  const dateLabel = new Date(c.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-                  const [h, m] = c.startTime.split(':').map(Number);
-                  const ampm = h >= 12 ? 'PM' : 'AM';
-                  const timeLabel = `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`;
-                  return (
-                    <li key={i} className="text-sm text-rose-700">
-                      • {dateLabel} — {timeLabel}
-                    </li>
-                  );
-                })}
-              </ul>
-              <p className="ml-7 mt-2 text-xs text-rose-500">Your selections are unchanged — adjust and try again.</p>
-            </div>
-          )}
+        {/* Header */}
+        <div className="mb-8">
+          <p className="text-xs font-bold text-[#00B4A0] uppercase tracking-widest mb-1">Doctor Portal</p>
+          <h1 className="text-3xl font-extrabold text-[#0A2540] tracking-tight">Create Schedule</h1>
+          <p className="text-slate-500 mt-1 text-sm">Pick specific dates and define your consultation slots.</p>
         </div>
-      )}
 
-      <div className="grid lg:grid-cols-3 gap-8">
+        {/* Message Banner */}
+        {message && (
+          <div className={`mb-6 rounded-2xl border overflow-hidden ${
+            message.type === 'success'   ? 'bg-emerald-50 border-emerald-200' :
+            message.type === 'conflict'  ? 'bg-rose-50 border-rose-200' :
+            message.type === 'pastDates' ? 'bg-amber-50 border-amber-200' :
+                                           'bg-red-50 border-red-200'
+          }`}>
 
-        {/* LEFT: Config */}
-        <div className="lg:col-span-1 space-y-6">
+            {/* Simple text banner (success / error) */}
+            {(message.type === 'success' || message.type === 'error') && (
+              <div className="flex items-center gap-3 p-4">
+                {message.type === 'success' ? (
+                  <svg className="w-5 h-5 flex-shrink-0 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5 flex-shrink-0 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                )}
+                <span className={`font-semibold text-sm ${message.type === 'success' ? 'text-emerald-700' : 'text-red-600'}`}>
+                  {message.text}
+                </span>
+              </div>
+            )}
 
-          {/* Time & Fee */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <h3 className="text-lg font-bold text-slate-800 mb-5 flex items-center gap-2">
-              <svg className="w-5 h-5 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Time Configuration
-            </h3>
-            <div className="space-y-5">
-              <InputWrapper label="Start Time" icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}>
-                <input type="time" value={setup.startTime} onChange={e => setSetup({ ...setup, startTime: e.target.value })} className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition font-medium text-slate-700" />
-              </InputWrapper>
+            {/* Past dates warning */}
+            {message.type === 'pastDates' && (
+              <div className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <svg className="w-5 h-5 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="font-bold text-amber-800 text-sm">Cannot add schedule for past dates:</p>
+                </div>
+                <ul className="ml-7 space-y-1">
+                  {message.invalidDates.map(d => (
+                    <li key={d} className="text-sm text-amber-700">
+                      {new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
-              <InputWrapper label="End Time" icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>}>
-                <input type="time" value={setup.endTime} onChange={e => setSetup({ ...setup, endTime: e.target.value })} className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition font-medium text-slate-700" />
-              </InputWrapper>
+            {/* Conflict warning */}
+            {message.type === 'conflict' && (
+              <div className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <svg className="w-5 h-5 text-rose-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  </svg>
+                  <p className="font-bold text-rose-800 text-sm">The following slots already exist and were not added:</p>
+                </div>
+                <ul className="ml-7 space-y-1">
+                  {message.conflicts.map((c, i) => {
+                    const dateLabel = new Date(c.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                    const [h, m] = c.startTime.split(':').map(Number);
+                    const ampm = h >= 12 ? 'PM' : 'AM';
+                    const timeLabel = `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`;
+                    return (
+                      <li key={i} className="text-sm text-rose-700">{dateLabel} &mdash; {timeLabel}</li>
+                    );
+                  })}
+                </ul>
+                <p className="ml-7 mt-2 text-xs text-rose-500">Your selections are unchanged — adjust and try again.</p>
+              </div>
+            )}
+          </div>
+        )}
 
-              <InputWrapper label="Slot Duration" icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}>
-                <select value={setup.duration} onChange={e => setSetup({ ...setup, duration: Number(e.target.value) })} className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition font-medium text-slate-700 appearance-none">
+        {/* Two-column grid */}
+        <div className="grid lg:grid-cols-2 gap-6">
+
+          {/* LEFT — Select Dates */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+            <div className="flex items-center gap-2 mb-5">
+              <div className="w-8 h-8 rounded-lg bg-[#00B4A0]/10 flex items-center justify-center">
+                <svg className="w-4 h-4 text-[#00B4A0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h3 className="text-base font-extrabold text-[#0A2540]">Select Dates</h3>
+            </div>
+
+            <CalendarPicker selectedDates={selectedDates} onToggle={toggleDate} />
+
+            {/* Teal date chips */}
+            {selectedDates.length > 0 && (
+              <div className="mt-5 pt-5 border-t border-slate-100">
+                <p className="text-xs font-bold text-[#00B4A0] uppercase tracking-widest mb-3">Selected Dates</p>
+                <div className="flex flex-wrap gap-2">
+                  {selectedDates.sort().map(d => (
+                    <span
+                      key={d}
+                      className="bg-[#00B4A0]/10 text-[#00B4A0] border border-[#00B4A0]/20 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5"
+                    >
+                      {formatDateLabel(d)}
+                      <button
+                        onClick={() => toggleDate(d)}
+                        className="text-[#00B4A0]/60 hover:text-[#00B4A0] transition font-extrabold leading-none w-4 h-4 flex items-center justify-center rounded-full hover:bg-[#00B4A0]/10"
+                      >
+                        &times;
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT — Time Configuration */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col">
+            <div className="flex items-center gap-2 mb-5">
+              <div className="w-8 h-8 rounded-lg bg-[#00B4A0]/10 flex items-center justify-center">
+                <svg className="w-4 h-4 text-[#00B4A0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-base font-extrabold text-[#0A2540]">Time Configuration</h3>
+            </div>
+
+            {/* 2x2 Input Grid */}
+            <div className="grid grid-cols-2 gap-4 mb-5">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-[#00B4A0] uppercase tracking-widest">Start Time</label>
+                <input
+                  type="time"
+                  value={setup.startTime}
+                  onChange={e => setSetup({ ...setup, startTime: e.target.value })}
+                  className="border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-[#00B4A0] focus:border-[#00B4A0] transition"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-[#00B4A0] uppercase tracking-widest">End Time</label>
+                <input
+                  type="time"
+                  value={setup.endTime}
+                  onChange={e => setSetup({ ...setup, endTime: e.target.value })}
+                  className="border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-[#00B4A0] focus:border-[#00B4A0] transition"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-[#00B4A0] uppercase tracking-widest">Duration</label>
+                <select
+                  value={setup.duration}
+                  onChange={e => setSetup({ ...setup, duration: Number(e.target.value) })}
+                  className="border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-[#00B4A0] focus:border-[#00B4A0] transition appearance-none bg-white"
+                >
                   <option value={15}>15 Minutes</option>
                   <option value={30}>30 Minutes</option>
                   <option value={45}>45 Minutes</option>
                   <option value={60}>60 Minutes</option>
                 </select>
-              </InputWrapper>
-
-              <InputWrapper label="Consultation Fee ($)" icon={<span className="text-lg font-bold text-slate-400">$</span>}>
-                <input type="number" value={setup.clinic_fee} onChange={e => setSetup({ ...setup, clinic_fee: e.target.value })} className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition font-medium text-slate-700" placeholder="0" />
-              </InputWrapper>
-            </div>
-          </div>
-
-          {/* Calendar Date Picker */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              Select Dates
-            </h3>
-            <CalendarPicker
-              selectedDates={selectedDates}
-              onToggle={toggleDate}
-            />
-          </div>
-
-          <button
-            onClick={generateTimeSlots}
-            className="w-full py-4 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 group"
-          >
-            <span>Generate Slots</span>
-            <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-            </svg>
-          </button>
-        </div>
-
-        {/* RIGHT: Preview */}
-        <div className="lg:col-span-2">
-          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 min-h-[600px] flex flex-col">
-
-            <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
-              <h3 className="text-xl font-bold text-slate-800">Preview Slots</h3>
-              <span className="bg-teal-50 text-teal-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">
-                {generatedSlots.length > 0 ? `${generatedSlots.length} Slots` : 'No Slots Yet'}
-              </span>
-            </div>
-
-            {generatedSlots.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 opacity-60">
-                <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                  <svg className="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <h4 className="text-lg font-bold text-slate-700">Ready to Plan?</h4>
-                <p className="text-slate-500 max-w-xs mt-2">Select dates and configure times on the left, then click Generate.</p>
               </div>
-            ) : (
-              <div className="flex-1 flex flex-col">
-                {/* Selected dates summary */}
-                {selectedDates.length > 0 && (
-                  <div className="mb-4 flex flex-wrap gap-2">
-                    {selectedDates.map(d => (
-                      <span key={d} className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full font-medium">
-                        {formatDateLabel(d)}
-                      </span>
-                    ))}
-                  </div>
-                )}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-[#00B4A0] uppercase tracking-widest">Fee ($)</label>
+                <input
+                  type="number"
+                  value={setup.clinic_fee}
+                  onChange={e => setSetup({ ...setup, clinic_fee: e.target.value })}
+                  className="border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-[#00B4A0] focus:border-[#00B4A0] transition"
+                  placeholder="0"
+                />
+              </div>
+            </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-8 content-start">
+            {/* Generate Slots button */}
+            <button
+              onClick={generateTimeSlots}
+              className="border-2 border-[#00B4A0] text-[#00B4A0] rounded-xl px-6 py-2.5 font-bold text-sm hover:bg-[#00B4A0]/10 transition-all mb-5"
+            >
+              Generate Slots
+            </button>
+
+            {/* Slot Preview */}
+            {generatedSlots.length > 0 ? (
+              <div className="flex-1 flex flex-col">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-bold text-[#00B4A0] uppercase tracking-widest">
+                    Preview &mdash; {generatedSlots.length} slot{generatedSlots.length !== 1 ? 's' : ''}
+                  </p>
+                  <span className="text-[11px] text-slate-400">Click to remove</span>
+                </div>
+
+                {/* Removable slot chips */}
+                <div className="flex flex-wrap gap-2 mb-5">
                   {generatedSlots.map(slot => (
-                    <div
+                    <button
                       key={slot.id}
                       onClick={() => removeSlot(slot.id)}
-                      className="group relative bg-white border border-slate-200 text-slate-600 hover:border-red-400 hover:text-red-600 hover:shadow-md transition-all rounded-lg py-2 px-1 text-center cursor-pointer overflow-hidden"
+                      className="bg-[#F4F7F9] border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-600 font-semibold hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-all tabular-nums"
                     >
-                      <span className="text-sm font-semibold relative z-10">{slot.startTime} – {slot.endTime}</span>
-                      <div className="absolute inset-0 bg-red-500/90 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <span className="text-xs font-bold uppercase tracking-wider">Remove</span>
-                      </div>
-                    </div>
+                      {slot.startTime} &ndash; {slot.endTime}
+                    </button>
                   ))}
                 </div>
 
-                <div className="mt-auto pt-6 border-t border-slate-100">
-                  <p className="text-xs text-slate-400 mb-3 text-center">
-                    These {generatedSlots.length} slot(s) will be created for each of the {selectedDates.length} selected date(s) — {generatedSlots.length * selectedDates.length} total entries.
+                {/* Summary + Save */}
+                <div className="mt-auto border-t border-slate-100 pt-5">
+                  <p className="text-xs text-slate-400 mb-4 text-center font-medium">
+                    {generatedSlots.length} slot{generatedSlots.length !== 1 ? 's' : ''} &times; {selectedDates.length} date{selectedDates.length !== 1 ? 's' : ''} = <span className="text-[#0A2540] font-bold">{generatedSlots.length * selectedDates.length} total entries</span>
                   </p>
                   <button
                     onClick={handleSave}
                     disabled={loading}
-                    className={`w-full py-4 rounded-xl text-white font-bold text-lg shadow-xl shadow-teal-500/20 transition-all duration-300 transform
-                      ${loading ? 'bg-teal-400 cursor-not-allowed' : 'bg-teal-600 hover:bg-teal-700 hover:-translate-y-1 active:scale-95'}`}
+                    className={`w-full bg-[#0A2540] hover:bg-slate-800 text-white rounded-xl px-8 py-3.5 font-bold text-sm transition-all ${loading ? 'opacity-60 cursor-not-allowed' : ''}`}
                   >
                     {loading ? (
                       <span className="flex items-center justify-center gap-2">
-                        <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                        <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                         </svg>
                         Saving...
                       </span>
-                    ) : 'Confirm & Save Schedule'}
+                    ) : 'Save Schedule'}
                   </button>
                 </div>
               </div>
+            ) : (
+              /* Empty slot placeholder */
+              <div className="flex-1 flex flex-col items-center justify-center text-center py-10">
+                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4">
+                  <svg className="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <p className="text-sm text-slate-400 font-medium">Select dates and click<br /><span className="text-[#00B4A0] font-bold">Generate Slots</span> to preview.</p>
+              </div>
             )}
           </div>
-        </div>
 
-      </div>
+        </div>
+      </main>
     </div>
   );
 };

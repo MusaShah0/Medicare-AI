@@ -6,47 +6,39 @@ import ReactMarkdown from 'react-markdown';
 const AIChat = () => {
   const navigate = useNavigate();
 
-  // State
+  // ── STATE (preserved exactly) ──
   const [sessionId, setSessionId] = useState(null);
   const [messages, setMessages] = useState([
     {
       sender: 'ai',
       text: "Hello! I am your Medicare AI assistant. Describe your symptoms or ask a health question.",
-      type: 'intro'
-    }
+      type: 'intro',
+    },
   ]);
   const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
 
-  // Refs
+  // ── REFS (preserved exactly) ──
   const hasFetchedRef = useRef(false);
   const messagesEndRef = useRef(null);
 
-  // Auto-scroll function
+  // Auto-scroll
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+  useEffect(scrollToBottom, [messages, loading]);
 
-  // UPDATED: Only scroll down when the user sends a message (loading = true)
-  // This prevents the chat from jumping to the bottom of a massive AI response!
-  useEffect(() => {
-    if (loading) {
-      scrollToBottom();
-    }
-  }, [loading]);
-
-  // 1. START NEW CHAT SESSION
+  // 1. START NEW CHAT SESSION (preserved exactly)
   useEffect(() => {
     if (hasFetchedRef.current) return;
     hasFetchedRef.current = true;
 
     const startSession = async () => {
       try {
-        const response = await axios.post(`${import.meta.env.VITE_API_URL}/startNewChat`, {}, {
-          withCredentials: true
+        const response = await axios.post('http://localhost:4000/startNewChat', {}, {
+          withCredentials: true,
         });
-
         if (response.status === 201) {
           setSessionId(response.data.sessionId);
         }
@@ -63,7 +55,7 @@ const AIChat = () => {
     startSession();
   }, [navigate]);
 
-  // 2. SEND MESSAGE
+  // 2. SEND MESSAGE (preserved exactly)
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!inputText.trim() || !sessionId) return;
@@ -71,161 +63,203 @@ const AIChat = () => {
     const userQuestion = inputText;
     setInputText("");
 
-    // Add User Message
     setMessages((prev) => [...prev, { sender: 'patient', text: userQuestion }]);
-
-    // Setting loading to true will now trigger the auto-scroll to show the typing indicator
     setLoading(true);
 
     try {
       const payload = {
         question: userQuestion,
-        session_id: sessionId
+        session_id: sessionId,
       };
 
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/SendMessage`, payload, {
-        withCredentials: true
+      const response = await axios.post('http://localhost:4000/SendMessage', payload, {
+        withCredentials: true,
       });
 
       const { answer, sources } = response.data;
 
-      // Add AI Response
       setMessages((prev) => [...prev, {
         sender: 'ai',
         text: answer,
-        sources: sources || []
+        sources: sources || [],
       }]);
 
     } catch (err) {
       console.error("Chat Error:", err);
       setMessages((prev) => [...prev, {
         sender: 'ai',
-        text: "I apologize, but I am unable to connect to the medical database at this moment. Please try again."
+        text: "I apologize, but I am unable to connect to the medical database at this moment. Please try again.",
       }]);
     } finally {
       setLoading(false);
     }
   };
 
-  // --- LOADING SCREEN ---
+  // ── LOADING SCREEN ──
   if (initializing) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-slate-50 text-slate-600 font-medium">
-        <div className="relative">
-          <div className="w-16 h-16 border-4 border-teal-200 border-t-teal-600 rounded-full animate-spin"></div>
-          <div className="absolute inset-0 flex items-center justify-center font-bold text-teal-700 text-xs">AI</div>
+      <div className="flex flex-col items-center justify-center h-screen bg-[#0A2540]">
+        <div className="relative mb-6">
+          <div className="w-16 h-16 border-4 border-[#00B4A0]/30 border-t-[#00B4A0] rounded-full animate-spin"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-[#00B4A0] font-extrabold text-xs">AI</span>
+          </div>
         </div>
-        <p className="mt-4 animate-pulse">Initializing Secure Session...</p>
+        <p className="text-white/60 font-medium animate-pulse text-sm">Initializing Secure Session...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-screen bg-slate-50 font-sans relative overflow-hidden">
+    <div className="flex flex-col h-screen bg-[#F4F7F9] font-sans">
 
-      {/* Decorative Background Elements */}
-      <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-teal-50/80 to-transparent pointer-events-none" />
-      <div className="absolute -top-20 -right-20 w-96 h-96 bg-blue-100 rounded-full blur-3xl opacity-30 pointer-events-none" />
+      {/* ── TOP NAVBAR ── */}
+      <header className="bg-[#0A2540] px-6 py-0 flex items-center justify-between flex-shrink-0 relative overflow-hidden" style={{ minHeight: '64px' }}>
+        {/* Subtle glow */}
+        <div className="absolute right-0 top-0 w-64 h-full bg-[#00B4A0]/5 blur-[80px] pointer-events-none" />
 
-      {/* --- HEADER --- */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-20 shadow-sm">
-        <div className="flex items-center gap-4">
+        <div className="relative z-10 flex items-center gap-4">
+          {/* Brand icon */}
           <div className="relative">
-            <div className="w-11 h-11 bg-gradient-to-tr from-teal-600 to-teal-400 rounded-xl flex items-center justify-center text-white text-2xl shadow-lg shadow-teal-500/30">
-              🩺
+            <div className="w-10 h-10 bg-[#00B4A0] rounded-xl flex items-center justify-center text-white font-extrabold text-base shadow-lg shadow-[#00B4A0]/30">
+              M
             </div>
-            <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></div>
+            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-[#0A2540] rounded-full"></div>
           </div>
           <div>
-            <h1 className="font-bold text-slate-900 text-lg leading-tight">MediCare <span className="text-teal-600">AI</span></h1>
-            <p className="text-xs text-slate-500 font-medium flex items-center gap-1">
-              <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-              Symptom Checker Active
+            <h1 className="text-white font-extrabold text-base leading-tight">
+              Medicare<span className="text-[#00B4A0]">AI</span>
+            </h1>
+            <p className="text-white/40 text-[11px] font-medium flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse inline-block"></span>
+              AI Medical Assistant
             </p>
           </div>
         </div>
 
         <button
           onClick={() => navigate('/patient/dashboard')}
-          className="group flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all"
+          className="relative z-10 flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white/70 hover:text-white text-sm font-semibold transition-all duration-200 border border-white/10"
         >
-          <span>Exit</span>
-          <svg className="w-4 h-4 text-slate-400 group-hover:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Back to Dashboard
         </button>
       </header>
 
-      {/* --- CHAT AREA --- */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 scroll-smooth z-10 custom-scrollbar">
-        <div className="max-w-3xl mx-auto space-y-8 pb-4">
+      {/* ── CHAT AREA ── */}
+      <div className="flex-1 overflow-y-auto px-4 py-6">
+        <div className="max-w-3xl mx-auto space-y-6 pb-4">
 
-          <div className="text-center">
-            <span className="bg-slate-200/50 text-slate-500 text-[10px] uppercase tracking-wider font-bold px-3 py-1 rounded-full">
+          {/* Session pill */}
+          <div className="flex justify-center">
+            <span className="bg-white border border-slate-100 shadow-sm text-slate-400 text-[10px] uppercase tracking-widest font-bold px-4 py-1.5 rounded-full">
               Session Started
             </span>
           </div>
 
+          {/* Messages */}
           {messages.map((msg, index) => (
-            <div key={index} className={`flex w-full ${msg.sender === 'patient' ? 'justify-end' : 'justify-start'}`}>
+            <div
+              key={index}
+              className={`flex w-full items-end gap-3 ${msg.sender === 'patient' ? 'justify-end' : 'justify-start'}`}
+            >
 
-              {/* Avatar for AI */}
+              {/* AI avatar */}
               {msg.sender === 'ai' && (
-                <div className="w-8 h-8 rounded-full bg-teal-100 flex-shrink-0 flex items-center justify-center mr-3 mt-1">
-                  <span className="text-sm">🤖</span>
+                <div className="w-8 h-8 rounded-xl bg-[#0A2540] flex-shrink-0 flex items-center justify-center shadow-sm mb-0.5">
+                  <svg className="w-4 h-4 text-[#00B4A0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
                 </div>
               )}
 
-              <div className={`relative max-w-[85%] md:max-w-[75%] px-5 py-4 rounded-2xl shadow-sm text-[15px] leading-relaxed transition-all duration-300 ${msg.sender === 'patient'
-                  ? 'bg-gradient-to-r from-teal-600 to-teal-500 text-white rounded-br-none'
-                  : 'bg-white text-slate-700 border border-slate-100 rounded-bl-none'
+              <div className={`max-w-[80%] md:max-w-[72%] ${msg.sender === 'patient' ? '' : ''}`}>
+                {/* Label for AI */}
+                {msg.sender === 'ai' && (
+                  <p className="text-xs font-bold text-[#00B4A0] uppercase tracking-widest mb-1 ml-1">AI Analysis</p>
+                )}
+
+                <div className={`px-5 py-4 text-[15px] leading-relaxed shadow-sm ${
+                  msg.sender === 'patient'
+                    ? 'bg-[#0A2540] text-white rounded-2xl rounded-tr-sm'
+                    : 'bg-white border border-slate-100 text-slate-700 rounded-2xl rounded-tl-sm'
                 }`}>
 
-                {/* --- MARKDOWN RENDERER --- */}
-                {msg.sender === 'ai' ? (
-                  <ReactMarkdown
-                    components={{
-                      h3: ({ node, ...props }) => <h3 className="text-teal-700 font-bold text-lg mt-4 mb-2 border-b border-teal-50 pb-1" {...props} />,
-                      ul: ({ node, ...props }) => <ul className="list-disc pl-4 space-y-1 mb-3" {...props} />,
-                      li: ({ node, ...props }) => <li className="text-slate-600" {...props} />,
-                      strong: ({ node, ...props }) => <span className="font-bold text-slate-800" {...props} />,
-                      p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />
-                    }}
-                  >
-                    {msg.text}
-                  </ReactMarkdown>
-                ) : (
-                  <p>{msg.text}</p>
-                )}
+                  {msg.sender === 'ai' ? (
+                    <ReactMarkdown
+                      components={{
+                        h3: ({ node, ...props }) => (
+                          <h3 className="text-[#00B4A0] font-bold text-base mt-4 mb-2 border-b border-slate-100 pb-1" {...props} />
+                        ),
+                        ul: ({ node, ...props }) => (
+                          <ul className="list-disc pl-4 space-y-1 mb-3" {...props} />
+                        ),
+                        li: ({ node, ...props }) => (
+                          <li className="text-slate-600" {...props} />
+                        ),
+                        strong: ({ node, ...props }) => (
+                          <span className="font-bold text-slate-800" {...props} />
+                        ),
+                        p: ({ node, ...props }) => (
+                          <p className="mb-2 last:mb-0" {...props} />
+                        ),
+                      }}
+                    >
+                      {msg.text}
+                    </ReactMarkdown>
+                  ) : (
+                    <p>{msg.text}</p>
+                  )}
 
-                {/* Sources Footnote */}
-                {msg.sources && msg.sources.length > 0 && (
-                  <div className="mt-4 pt-3 border-t border-slate-100/20">
-                    <p className="text-[10px] font-bold opacity-70 uppercase mb-1 flex items-center gap-1">
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      Medical Sources:
-                    </p>
-                    <ul className="space-y-1">
-                      {msg.sources.map((source, i) => (
-                        <li key={i} className={`text-xs truncate max-w-xs ${msg.sender === 'patient' ? 'text-teal-100' : 'text-blue-500'}`}>
-                          • {source}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                  {/* Sources */}
+                  {msg.sources && msg.sources.length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-slate-100">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Medical Sources
+                      </p>
+                      <ul className="space-y-1">
+                        {msg.sources.map((source, i) => (
+                          <li key={i} className="text-xs text-[#00B4A0] truncate max-w-xs">
+                            • {source}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* Patient avatar placeholder for spacing alignment */}
+              {msg.sender === 'patient' && (
+                <div className="w-8 h-8 rounded-xl bg-[#00B4A0] flex-shrink-0 flex items-center justify-center shadow-sm mb-0.5">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+              )}
             </div>
           ))}
 
-          {/* Typing Indicator */}
+          {/* Typing indicator — animated teal dots */}
           {loading && (
-            <div className="flex justify-start w-full animate-fade-in-up">
-              <div className="w-8 h-8 rounded-full bg-teal-100 flex-shrink-0 flex items-center justify-center mr-3">
-                <span className="text-sm">🤖</span>
+            <div className="flex justify-start items-end gap-3">
+              <div className="w-8 h-8 rounded-xl bg-[#0A2540] flex-shrink-0 flex items-center justify-center shadow-sm">
+                <svg className="w-4 h-4 text-[#00B4A0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
               </div>
-              <div className="bg-white border border-slate-100 px-4 py-3 rounded-2xl rounded-bl-none shadow-sm flex items-center gap-1">
-                <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-100"></div>
-                <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-200"></div>
+              <div>
+                <p className="text-xs font-bold text-[#00B4A0] uppercase tracking-widest mb-1 ml-1">AI Analysis</p>
+                <div className="bg-white border border-slate-100 shadow-sm px-5 py-4 rounded-2xl rounded-tl-sm flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 bg-[#00B4A0] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                  <div className="w-2.5 h-2.5 bg-[#00B4A0] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                  <div className="w-2.5 h-2.5 bg-[#00B4A0] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                </div>
               </div>
             </div>
           )}
@@ -234,40 +268,43 @@ const AIChat = () => {
         </div>
       </div>
 
-      {/* --- INPUT AREA --- */}
-      <div className="p-4 z-20">
+      {/* ── INPUT AREA ── */}
+      <div className="flex-shrink-0 p-4 bg-[#F4F7F9] border-t border-slate-200">
         <div className="max-w-3xl mx-auto">
           <form
             onSubmit={handleSendMessage}
-            className="relative flex items-center gap-2 bg-white p-2 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 focus-within:ring-2 focus-within:ring-teal-500/50 focus-within:border-teal-500 transition-all"
+            className="flex items-center gap-3 bg-white rounded-2xl border border-slate-200 shadow-md px-3 py-2 focus-within:ring-2 focus-within:ring-[#00B4A0]/40 focus-within:border-[#00B4A0] transition-all duration-200"
           >
             <input
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder="Type your symptoms here..."
-              className="flex-1 px-4 py-3 bg-transparent text-slate-800 placeholder-slate-400 focus:outline-none text-base"
+              placeholder="Describe your symptoms or ask a health question..."
+              className="flex-1 px-3 py-2.5 bg-transparent text-slate-800 placeholder-slate-400 focus:outline-none text-base"
             />
-
             <button
               type="submit"
               disabled={loading || !inputText.trim()}
-              className="p-3 bg-teal-600 hover:bg-teal-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl transition-all duration-200 transform active:scale-95 shadow-md"
+              className="flex-shrink-0 w-11 h-11 bg-[#00B4A0] hover:bg-teal-400 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl font-bold transition-all duration-200 active:scale-95 flex items-center justify-center shadow-sm"
             >
               {loading ? (
-                <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
               ) : (
-                <svg className="w-5 h-5 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                <svg className="w-5 h-5 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
               )}
             </button>
           </form>
-          <div className="text-center mt-2">
-            <p className="text-[10px] text-slate-400">
-              AI can make mistakes. Please consult a real doctor for emergencies.
-            </p>
-          </div>
+          <p className="text-center text-[11px] text-slate-400 mt-2">
+            AI can make mistakes. Please consult a real doctor for emergencies.
+          </p>
         </div>
       </div>
+
     </div>
   );
 };

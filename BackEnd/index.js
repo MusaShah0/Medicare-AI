@@ -22,6 +22,7 @@ const ChatRoutes = require('./Routes/Chat.route')
 const ReviewRoutes = require('./Routes/Rewiew.route')
 const NotesRoutes = require('./Routes/Notes.route')
 const WebhookRoutes = require('./Routes/Webhook.route')
+const AdminRoutes = require('./Routes/Admin.route')
 require('dotenv').config()
 
 app.use('/pictures', express.static(path.join(__dirname, 'public/pictures')));
@@ -40,6 +41,7 @@ app.use('',Apppoitment_Routes)
 app.use('', ChatRoutes)
 app.use('', ReviewRoutes)
 app.use('', NotesRoutes)
+app.use('', AdminRoutes)
 
 mongoose.connect(process.env.DB_URL).then(()=>
 {

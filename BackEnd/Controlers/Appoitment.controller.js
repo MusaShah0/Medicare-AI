@@ -567,6 +567,35 @@ const End_Meeting_Early = async (req, res) => {
   }
 }
 
+// GET /doctor/dashboard-stats  — quick stat counts for the logged-in doctor
+const Doctor_Dashboard_Stats = async (req, res) => {
+  try {
+    const doctorId = req.doctorId
+
+    const [total, booked, ongoing, completed, cancelled, availableSlots] = await Promise.all([
+      Appoitment_Model.countDocuments({ doctor_id: doctorId }),
+      Appoitment_Model.countDocuments({ doctor_id: doctorId, status: 'booked' }),
+      Appoitment_Model.countDocuments({ doctor_id: doctorId, status: 'ongoing' }),
+      Appoitment_Model.countDocuments({ doctor_id: doctorId, status: 'completed' }),
+      Appoitment_Model.countDocuments({ doctor_id: doctorId, status: 'cancelled' }),
+      Sechdule_Model.countDocuments({ doctor: doctorId, status: 'available' }),
+    ])
+
+    res.json({
+      success: true,
+      data: {
+        total,
+        upcoming: booked + ongoing,   // "Upcoming" = booked + currently ongoing
+        completed,
+        cancelled,
+        availableSlots,
+      },
+    })
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message })
+  }
+}
+
 module.exports = {
   Show_Appoitment_Sechdule,
   Book_Appointment,
@@ -576,5 +605,6 @@ module.exports = {
   Validate_And_Join_Meeting,
   Reschedule_Appointment,
   Redeem_Reschedule,
-  End_Meeting_Early
+  End_Meeting_Early,
+  Doctor_Dashboard_Stats,
 }
