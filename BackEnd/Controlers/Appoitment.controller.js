@@ -2,6 +2,7 @@ const moment = require('moment')
 const axios = require('axios')
 const Sechdule_Model = require('../Models/sechdule.model')
 const Appoitment_Model = require('../Models/Appoitment.model')
+const { createNotification } = require('./Notification.controller')
 const { generateToken } = require('../utils/videoSDK')
 const autoCancel = require('../utils/autoCancel')
 const { cancelStaleAndFetchUpcoming, incrementDoctorCompletedCount, scheduleAutoComplete, cancelAutoComplete } = require('../utils/autoCancel')
@@ -139,6 +140,16 @@ const Book_Appointment = async (req, res) => {
       await Sechdule_Model.findByIdAndUpdate(scheduleId, { $set: { status: 'available' } })
       throw innerErr
     }
+
+    // Notify doctor that a new appointment was booked
+    await createNotification({
+      recipient_id  : schedule.doctor,
+      recipient_role: 'doctor',
+      type          : 'appointment_booked',
+      title         : 'New Appointment Booked',
+      message       : `A patient has booked your slot on ${moment.utc(schedule.date).format('MMM D, YYYY')} at ${schedule.startTime}.`,
+      appointment_id: appointment._id,
+    })
 
     return res.status(201).json({ success: true, message: 'Appointment booked successfully', data: appointment })
 
@@ -379,6 +390,16 @@ const Reschedule_Appointment = async (req, res) => {
     appointment.is_rescheduled_token = true
     await appointment.save()
 
+    // Notify patient
+    await createNotification({
+      recipient_id  : appointment.patient_id,
+      recipient_role: 'patient',
+      type          : 'appointment_rescheduled',
+      title         : 'Appointment Rescheduled by Doctor',
+      message       : `Your doctor has rescheduled your appointment. You have a free rebook token — use it to pick a new slot.`,
+      appointment_id: appointment._id,
+    })
+
     return res.status(200).json({
       success: true,
       message: 'Appointment cancelled. Patient can now rebook any of your available slots for free.',
@@ -567,6 +588,60 @@ const End_Meeting_Early = async (req, res) => {
   }
 }
 
+// POST /cancel-appointment/:appointmentId  — Patient cancels their own booked appointment
+const Cancel_Appointment = async (req, res) => {
+  try {
+    const { appointmentId } = req.params
+    const patient_id = req.PatientId
+
+    const appointment = await Appoitment_Model.findOne({
+      _id: appointmentId,
+      patient_id,
+      status: 'booked',
+    }).populate('sechdule_Id').populate('doctor_id', 'first_Name last_Name')
+
+    if (!appointment) {
+      return res.status(404).json({ success: false, message: 'Appointment not found or cannot be cancelled.' })
+    }
+
+    appointment.status = 'cancelled'
+    await appointment.save()
+
+    // Free the schedule slot
+    await Sechdule_Model.findByIdAndUpdate(appointment.sechdule_Id._id, { status: 'available' })
+
+    // Notify doctor
+    await createNotification({
+      recipient_id  : appointment.doctor_id._id,
+      recipient_role: 'doctor',
+      type          : 'appointment_cancelled',
+      title         : 'Appointment Cancelled',
+      message       : `A patient has cancelled their appointment scheduled for ${moment.utc(appointment.sechdule_Id.date).format('MMM D, YYYY')} at ${appointment.sechdule_Id.startTime}.`,
+      appointment_id: appointment._id,
+    })
+
+    return res.status(200).json({ success: true, message: 'Appointment cancelled successfully.' })
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message })
+  }
+}
+
+// GET /patient/dashboard-stats  — quick stat counts for the logged-in patient
+const Patient_Dashboard_Stats = async (req, res) => {
+  try {
+    const patient_id = req.PatientId
+    const [total, upcoming, completed, cancelled] = await Promise.all([
+      Appoitment_Model.countDocuments({ patient_id }),
+      Appoitment_Model.countDocuments({ patient_id, status: { $in: ['booked', 'ongoing'] } }),
+      Appoitment_Model.countDocuments({ patient_id, status: 'completed' }),
+      Appoitment_Model.countDocuments({ patient_id, status: 'cancelled' }),
+    ])
+    res.json({ success: true, data: { total, upcoming, completed, cancelled } })
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message })
+  }
+}
+
 // GET /doctor/dashboard-stats  — quick stat counts for the logged-in doctor
 const Doctor_Dashboard_Stats = async (req, res) => {
   try {
@@ -607,4 +682,6 @@ module.exports = {
   Redeem_Reschedule,
   End_Meeting_Early,
   Doctor_Dashboard_Stats,
+  Cancel_Appointment,
+  Patient_Dashboard_Stats,
 }

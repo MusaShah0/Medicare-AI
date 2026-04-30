@@ -149,5 +149,46 @@ const verifyPatient = (req, res) => {
   return res.status(200).json({ status: 1, authenticated: true, id: req.PatientId });
 };
 
-module.exports={P_SignUp,P_LoginIn, logout, verifyPatient}
+const bcrypt = require('bcrypt')
+
+const getProfile = async (req, res) => {
+  try {
+    const patient = await PatientModel.findById(req.PatientId).select('-password')
+    if (!patient) return res.status(404).json({ success: false, message: 'Patient not found.' })
+    res.json({ success: true, data: patient })
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message })
+  }
+}
+
+const updateProfile = async (req, res) => {
+  try {
+    const { first_Name, last_Name, age, gender, password } = req.body
+    const patient = await PatientModel.findById(req.PatientId)
+    if (!patient) return res.status(404).json({ success: false, message: 'Patient not found.' })
+
+    const ageNum = Number(age)
+    if (age !== undefined && (isNaN(ageNum) || ageNum < 0 || ageNum > 120))
+      return res.status(400).json({ success: false, message: 'Invalid age.' })
+    if (gender && !['Male','Female','Other'].includes(gender))
+      return res.status(400).json({ success: false, message: 'Invalid gender.' })
+    if (password && password.length < 8)
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters.' })
+
+    if (first_Name) patient.first_Name = first_Name
+    if (last_Name)  patient.last_Name  = last_Name
+    if (age !== undefined) patient.age = ageNum
+    if (gender)     patient.gender     = gender
+    if (password)   patient.password   = password  // pre-save hook hashes
+
+    await patient.save()
+    const updated = patient.toObject()
+    delete updated.password
+    res.json({ success: true, message: 'Profile updated.', data: updated })
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message })
+  }
+}
+
+module.exports={P_SignUp, P_LoginIn, logout, verifyPatient, getProfile, updateProfile}
 

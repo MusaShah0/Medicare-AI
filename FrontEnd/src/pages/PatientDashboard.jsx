@@ -1,44 +1,93 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import NotificationBell from '../components/NotificationBell';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 const PatientDashboard = () => {
   const navigate = useNavigate();
-  const [patient, setPatient] = useState({ name: "Patient", id: "" });
+  const [patient, setPatient] = useState({ name: 'Patient', id: '' });
   const [loading, setLoading] = useState(true);
 
-  // --- 1. LOGOUT LOGIC ---
+  // Dashboard stats
+  const [stats, setStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const statsIntervalRef = useRef(null);
+
+  // --- LOGOUT LOGIC ---
   const handleLogout = async () => {
     try {
-      await axios.get('http://localhost:4000/logout', { withCredentials: true });
+      await axios.get(`${API_BASE}/logout`, { withCredentials: true });
       localStorage.removeItem('patientData');
       navigate('/patient/login');
     } catch (err) {
-      console.error("Logout failed", err);
+      console.error('Logout failed', err);
       localStorage.removeItem('patientData');
       navigate('/patient/login');
     }
   };
 
-  // --- 2. FETCH DATA LOGIC ---
+  // --- FETCH STATS ---
+  const fetchStats = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/patient/dashboard-stats`, { withCredentials: true });
+      if (res.data.success) {
+        setStats(res.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch dashboard stats:', err);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  // --- FETCH PATIENT DATA & STATS ON MOUNT ---
   useEffect(() => {
     const storedData = localStorage.getItem('patientData');
     if (storedData) {
       setPatient(JSON.parse(storedData));
     }
     setLoading(false);
+
+    // Fetch stats immediately, then poll every 30s
+    fetchStats();
+    statsIntervalRef.current = setInterval(fetchStats, 30000);
+
+    return () => {
+      if (statsIntervalRef.current) clearInterval(statsIntervalRef.current);
+    };
   }, []);
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-[#F4F7F9]">
       <div className="flex flex-col items-center gap-4">
-        <div className="w-12 h-12 border-4 border-[#00B4A0]/30 border-t-[#00B4A0] rounded-full animate-spin"></div>
+        <div className="w-12 h-12 border-4 border-[#00B4A0]/30 border-t-[#00B4A0] rounded-full animate-spin" />
         <p className="text-slate-500 font-medium">Loading your dashboard...</p>
       </div>
     </div>
   );
 
-  const patientFirstName = patient.first_Name || patient.name || "Patient";
+  const patientFirstName = patient.first_Name || patient.name || 'Patient';
+
+  // Stat card helper
+  const StatCard = ({ icon, label, statKey, color = '#00B4A0' }) => (
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-6 py-5 flex items-center gap-4 hover:-translate-y-1 hover:shadow-md transition-all duration-300">
+      <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${color}18` }}>
+        {icon}
+      </div>
+      <div>
+        {statsLoading ? (
+          <div className="w-8 h-6 bg-slate-100 rounded animate-pulse mb-1" />
+        ) : (
+          <p className="text-2xl font-extrabold text-[#0A2540]">
+            {stats?.[statKey] ?? '—'}
+          </p>
+        )}
+        <p className="text-slate-500 text-sm font-medium">{label}</p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[#F4F7F9] font-sans flex">
@@ -58,7 +107,6 @@ const PatientDashboard = () => {
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-6 space-y-1">
-          {/* Dashboard — active */}
           <Link
             to="/patient/dashboard"
             className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/15 text-white font-semibold border-l-4 border-[#00B4A0] transition-all duration-200"
@@ -98,6 +146,16 @@ const PatientDashboard = () => {
             </svg>
             AI Chat
           </Link>
+
+          <Link
+            to="/patient/edit-profile"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/60 hover:bg-white/10 hover:text-white font-medium transition-all duration-200 border-l-4 border-transparent"
+          >
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            Edit Profile
+          </Link>
         </nav>
 
         {/* Logout */}
@@ -119,7 +177,6 @@ const PatientDashboard = () => {
 
         {/* Hero Strip */}
         <div className="relative bg-[#0A2540] overflow-hidden px-10 py-10">
-          {/* Glow blobs */}
           <div className="absolute top-[-40px] right-[-60px] w-72 h-72 bg-[#00B4A0]/10 rounded-full blur-[120px] pointer-events-none" />
           <div className="absolute bottom-[-60px] left-[30%] w-64 h-64 bg-[#00B4A0]/10 rounded-full blur-[120px] pointer-events-none" />
 
@@ -131,7 +188,10 @@ const PatientDashboard = () => {
               </h1>
               <p className="text-white/50 mt-2 text-sm">Here is your health overview for today.</p>
             </div>
-            <div className="flex gap-3 flex-wrap">
+            <div className="flex gap-3 flex-wrap items-center">
+              {/* Notification Bell */}
+              <NotificationBell role="patient" />
+
               <button
                 onClick={() => navigate('/doctors')}
                 className="bg-[#00B4A0] text-white px-5 py-2.5 rounded-xl font-bold hover:bg-teal-400 transition-all duration-200 shadow-lg shadow-[#00B4A0]/20 flex items-center gap-2"
@@ -157,46 +217,44 @@ const PatientDashboard = () => {
         {/* Page body */}
         <div className="flex-1 p-8 space-y-8">
 
-          {/* Stats Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            {/* Stat 1 */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-6 py-5 flex items-center gap-4 hover:-translate-y-1 hover:shadow-md transition-all duration-300">
-              <div className="w-12 h-12 bg-[#00B4A0]/10 rounded-xl flex items-center justify-center flex-shrink-0">
+          {/* Stats Row — 4 cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <StatCard
+              statKey="total"
+              label="Total Appointments"
+              icon={
+                <svg className="w-6 h-6 text-[#00B4A0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              }
+            />
+            <StatCard
+              statKey="upcoming"
+              label="Upcoming"
+              icon={
                 <svg className="w-6 h-6 text-[#00B4A0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-              </div>
-              <div>
-                <p className="text-2xl font-extrabold text-[#0A2540]">—</p>
-                <p className="text-slate-500 text-sm font-medium">Upcoming Appointments</p>
-              </div>
-            </div>
-
-            {/* Stat 2 */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-6 py-5 flex items-center gap-4 hover:-translate-y-1 hover:shadow-md transition-all duration-300">
-              <div className="w-12 h-12 bg-[#00B4A0]/10 rounded-xl flex items-center justify-center flex-shrink-0">
+              }
+            />
+            <StatCard
+              statKey="completed"
+              label="Completed Sessions"
+              icon={
                 <svg className="w-6 h-6 text-[#00B4A0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-              </div>
-              <div>
-                <p className="text-2xl font-extrabold text-[#0A2540]">—</p>
-                <p className="text-slate-500 text-sm font-medium">Completed Sessions</p>
-              </div>
-            </div>
-
-            {/* Stat 3 */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-6 py-5 flex items-center gap-4 hover:-translate-y-1 hover:shadow-md transition-all duration-300">
-              <div className="w-12 h-12 bg-[#00B4A0]/10 rounded-xl flex items-center justify-center flex-shrink-0">
+              }
+            />
+            <StatCard
+              statKey="cancelled"
+              label="Cancelled"
+              icon={
                 <svg className="w-6 h-6 text-[#00B4A0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-              </div>
-              <div>
-                <p className="text-2xl font-extrabold text-[#0A2540]">—</p>
-                <p className="text-slate-500 text-sm font-medium">AI Chats</p>
-              </div>
-            </div>
+              }
+            />
           </div>
 
           {/* Quick Actions */}

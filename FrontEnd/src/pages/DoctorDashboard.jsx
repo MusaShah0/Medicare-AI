@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
+import NotificationBell from '../components/NotificationBell';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -145,12 +146,15 @@ const DoctorDashboard = () => {
               </h1>
               <p className="text-white/50 mt-2 text-sm">Manage your practice and appointments efficiently.</p>
             </div>
-            <div className="text-right hidden md:flex flex-col items-end gap-1">
-              <p className="text-white/80 text-sm font-semibold">{currentDate}</p>
-              <span className="inline-flex items-center gap-1.5 text-[#00B4A0] text-xs font-bold">
-                <span className="w-2 h-2 bg-[#00B4A0] rounded-full animate-pulse"></span>
-                System Online
-              </span>
+            <div className="hidden md:flex items-center gap-4">
+              <NotificationBell role="doctor" />
+              <div className="text-right flex flex-col items-end gap-1">
+                <p className="text-white/80 text-sm font-semibold">{currentDate}</p>
+                <span className="inline-flex items-center gap-1.5 text-[#00B4A0] text-xs font-bold">
+                  <span className="w-2 h-2 bg-[#00B4A0] rounded-full animate-pulse"></span>
+                  System Online
+                </span>
+              </div>
             </div>
           </div>
         </div>

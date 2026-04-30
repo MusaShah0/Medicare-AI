@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
+import NotificationBell from '../components/NotificationBell';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 // ── Star rating (interactive) ─────────────────────────────────────────────────
 const StarRating = ({ value, onChange }) => (
@@ -26,10 +29,10 @@ const StarRating = ({ value, onChange }) => (
 
 // ── Review Modal ──────────────────────────────────────────────────────────────
 const ReviewModal = ({ appointment, onClose, onSubmitted }) => {
-  const [rating, setRating] = useState(0);
+  const [rating, setRating]         = useState(0);
   const [reviewText, setReviewText] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError]           = useState('');
 
   const doctor = appointment.doctor_id;
 
@@ -39,7 +42,7 @@ const ReviewModal = ({ appointment, onClose, onSubmitted }) => {
     setError('');
     try {
       await axios.post(
-        `${import.meta.env.VITE_API_URL}/review`,
+        `${API_BASE}/review`,
         { appointment_id: appointment._id, rating, review: reviewText.trim() },
         { withCredentials: true }
       );
@@ -56,7 +59,6 @@ const ReviewModal = ({ appointment, onClose, onSubmitted }) => {
       <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 z-10">
 
-        {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div>
             <p className="text-xs font-bold text-[#00B4A0] uppercase tracking-widest mb-1">Feedback</p>
@@ -75,7 +77,6 @@ const ReviewModal = ({ appointment, onClose, onSubmitted }) => {
           </button>
         </div>
 
-        {/* Stars */}
         <div className="flex flex-col items-center gap-2 mb-6 bg-slate-50 rounded-2xl p-5">
           <StarRating value={rating} onChange={setRating} />
           <span className="text-sm text-slate-400 font-medium mt-1">
@@ -83,7 +84,6 @@ const ReviewModal = ({ appointment, onClose, onSubmitted }) => {
           </span>
         </div>
 
-        {/* Textarea */}
         <textarea
           value={reviewText}
           onChange={(e) => setReviewText(e.target.value)}
@@ -94,11 +94,8 @@ const ReviewModal = ({ appointment, onClose, onSubmitted }) => {
         />
         <div className="text-right text-xs text-slate-300 mt-1 mb-4">{reviewText.length}/1000</div>
 
-        {error && (
-          <p className="text-sm text-red-500 font-medium mb-4">{error}</p>
-        )}
+        {error && <p className="text-sm text-red-500 font-medium mb-4">{error}</p>}
 
-        {/* Actions */}
         <div className="flex gap-3">
           <button
             onClick={onClose}
@@ -118,6 +115,76 @@ const ReviewModal = ({ appointment, onClose, onSubmitted }) => {
     </div>
   );
 };
+
+// ── Cancel Confirm Modal ──────────────────────────────────────────────────────
+const CancelModal = ({ appointment, onClose, onConfirm, loading }) => {
+  const doctor = appointment?.doctor_id;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => { if (!loading) onClose(); }} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 z-10">
+        {/* Icon */}
+        <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-5">
+          <svg className="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <h3 className="text-xl font-bold text-[#0A2540] text-center mb-2">Cancel Appointment?</h3>
+        <p className="text-sm text-slate-500 text-center mb-1">
+          {doctor ? `Dr. ${doctor.first_Name} ${doctor.last_Name}` : 'This appointment'} will be cancelled.
+        </p>
+        <p className="text-xs text-slate-400 text-center mb-7">This action cannot be undone.</p>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition text-sm disabled:opacity-50"
+          >
+            Keep It
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="flex-1 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm transition disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : null}
+            Yes, Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+const Toast = ({ toasts }) => (
+  <div className="fixed bottom-5 right-5 z-[60] flex flex-col gap-2 pointer-events-none">
+    {toasts.map((t) => (
+      <div
+        key={t.id}
+        className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl text-white text-sm font-semibold border border-white/10 transition-all duration-300
+          ${t.type === 'error' ? 'bg-red-600' : 'bg-[#0A2540]'}`}
+      >
+        {t.type === 'error' ? (
+          <svg className="w-4 h-4 flex-shrink-0 text-red-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        ) : (
+          <svg className="w-4 h-4 flex-shrink-0 text-[#00B4A0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+          </svg>
+        )}
+        {t.message}
+      </div>
+    ))}
+  </div>
+);
 
 // ── Status badge styles ───────────────────────────────────────────────────────
 const getStatusStyles = (status) => {
@@ -143,26 +210,40 @@ const getStatusDot = (status) => {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 const MyAppointments = () => {
   const navigate = useNavigate();
-  const [appointments, setAppointments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [now, setNow] = useState(new Date());
-  const [reviewedIds, setReviewedIds] = useState(new Set());
-  const [activeReview, setActiveReview] = useState(null);
+  const [appointments, setAppointments]   = useState([]);
+  const [loading, setLoading]             = useState(true);
+  const [error, setError]                 = useState(null);
+  const [now, setNow]                     = useState(new Date());
+  const [reviewedIds, setReviewedIds]     = useState(new Set());
+  const [activeReview, setActiveReview]   = useState(null);
+
+  // Cancel state
+  const [cancelTarget, setCancelTarget]   = useState(null);   // appointment to cancel
+  const [cancelLoading, setCancelLoading] = useState(false);
+
+  // Toast state
+  const [toasts, setToasts]               = useState([]);
 
   // Reschedule token state
-  const [redeemTarget, setRedeemTarget] = useState(null);
-  const [redeemSlots, setRedeemSlots] = useState({});
-  const [redeemLoading, setRedeemLoading] = useState(false);
+  const [redeemTarget, setRedeemTarget]             = useState(null);
+  const [redeemSlots, setRedeemSlots]               = useState({});
+  const [redeemLoading, setRedeemLoading]           = useState(false);
   const [redeemExpandedDate, setRedeemExpandedDate] = useState(null);
   const [redeemSelectedSlot, setRedeemSelectedSlot] = useState(null);
-  const [redeemMsg, setRedeemMsg] = useState(null);
+  const [redeemMsg, setRedeemMsg]                   = useState(null);
 
   // Notes state
-  const [notesInfo, setNotesInfo] = useState({});
-  const [notesLoading, setNotesLoading] = useState({});
-  const [newlyReady, setNewlyReady] = useState(new Set());
+  const [notesInfo, setNotesInfo]         = useState({});
+  const [notesLoading, setNotesLoading]   = useState({});
+  const [newlyReady, setNewlyReady]       = useState(new Set());
   const [processingToast, setProcessingToast] = useState(false);
+
+  // ── Toast helper ──
+  const showToast = (message, type = 'success') => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3000);
+  };
 
   // Live clock — ticks every 30s
   useEffect(() => {
@@ -195,7 +276,7 @@ const MyAppointments = () => {
   const checkNotes = async (appointmentId, { silent = false } = {}) => {
     if (!silent) setNotesLoading((prev) => ({ ...prev, [appointmentId]: true }));
     try {
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/appointments/${appointmentId}/notes`, {
+      const res = await axios.get(`${API_BASE}/appointments/${appointmentId}/notes`, {
         withCredentials: true,
       });
       const incoming = res.data;
@@ -210,7 +291,7 @@ const MyAppointments = () => {
       });
       return incoming.status;
     } catch (err) {
-      console.error(`[Notes] Status check failed:`, err.response?.data || err.message);
+      console.error('[Notes] Status check failed:', err.response?.data || err.message);
       setNotesInfo((prev) => ({ ...prev, [appointmentId]: { status: 'failed' } }));
       return 'failed';
     } finally {
@@ -219,9 +300,9 @@ const MyAppointments = () => {
   };
 
   // ── FETCH APPOINTMENTS ──
-  const fetchAppointments = async () => {
+  const fetchAppointments = useCallback(async () => {
     try {
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/My_Appointments`, { withCredentials: true });
+      const res = await axios.get(`${API_BASE}/My_Appointments`, { withCredentials: true });
       if (res.data.status === 1) {
         const appts = res.data.data;
         setAppointments(appts);
@@ -231,7 +312,7 @@ const MyAppointments = () => {
         if (completedIds.length > 0) {
           const checks = await Promise.all(
             completedIds.map((id) =>
-              axios.get(`${import.meta.env.VITE_API_URL}/review/check/${id}`, { withCredentials: true })
+              axios.get(`${API_BASE}/review/check/${id}`, { withCredentials: true })
                 .then((r) => r.data.reviewed ? id : null)
                 .catch(() => null)
             )
@@ -252,13 +333,13 @@ const MyAppointments = () => {
     } finally {
       setTimeout(() => setLoading(false), 300);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchAppointments();
     window.addEventListener('focus', fetchAppointments);
     return () => window.removeEventListener('focus', fetchAppointments);
-  }, []);
+  }, [fetchAppointments]);
 
   // Poll every 10s for processing notes
   useEffect(() => {
@@ -278,6 +359,28 @@ const MyAppointments = () => {
     setActiveReview(null);
   };
 
+  // ── CANCEL APPOINTMENT ──
+  const handleCancelConfirm = async () => {
+    if (!cancelTarget) return;
+    setCancelLoading(true);
+    try {
+      await axios.post(
+        `${API_BASE}/cancel-appointment/${cancelTarget._id}`,
+        {},
+        { withCredentials: true }
+      );
+      // Optimistic update — remove from list
+      setAppointments((prev) => prev.filter((a) => a._id !== cancelTarget._id));
+      setCancelTarget(null);
+      showToast('Appointment cancelled', 'success');
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to cancel appointment.';
+      showToast(msg, 'error');
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
   // ── REDEEM MODAL ──
   const openRedeemModal = async (appointment) => {
     setRedeemTarget(appointment);
@@ -288,7 +391,7 @@ const MyAppointments = () => {
     setRedeemLoading(true);
     try {
       const res = await axios.get(
-        `${import.meta.env.VITE_API_URL}/Show_Appoitment_Sechdule/${appointment.doctor_id?._id || appointment.doctor_id}`
+        `${API_BASE}/Show_Appoitment_Sechdule/${appointment.doctor_id?._id || appointment.doctor_id}`
       );
       if (res.data.status === 1) {
         setRedeemSlots(res.data.data);
@@ -308,7 +411,7 @@ const MyAppointments = () => {
     setRedeemMsg(null);
     try {
       const res = await axios.post(
-        `${import.meta.env.VITE_API_URL}/Redeem_Reschedule/${redeemTarget._id}/${redeemSelectedSlot._id}`,
+        `${API_BASE}/Redeem_Reschedule/${redeemTarget._id}/${redeemSelectedSlot._id}`,
         {},
         { withCredentials: true }
       );
@@ -384,6 +487,9 @@ const MyAppointments = () => {
   return (
     <div className="min-h-screen bg-[#F4F7F9] font-sans text-slate-800">
 
+      {/* ── TOAST NOTIFICATIONS ── */}
+      <Toast toasts={toasts} />
+
       {/* ── PROCESSING TOAST ── */}
       {processingToast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-[#0A2540] text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-white/10 max-w-sm w-full mx-4">
@@ -417,12 +523,15 @@ const MyAppointments = () => {
             </span>
             <span className="text-base font-semibold text-slate-400 hidden sm:block">My Appointments</span>
           </div>
-          <Link
-            to="/doctors"
-            className="bg-[#00B4A0] text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-teal-400 transition"
-          >
-            + Book New
-          </Link>
+          <div className="flex items-center gap-3">
+            <NotificationBell role="patient" />
+            <Link
+              to="/doctors"
+              className="bg-[#00B4A0] text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-teal-400 transition"
+            >
+              + Book New
+            </Link>
+          </div>
         </div>
       </nav>
 
@@ -445,21 +554,22 @@ const MyAppointments = () => {
         ) : (
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {appointments.map((app) => {
-              const doctor  = app.doctor_id;
-              const slot    = app.sechdule_Id;
+              const doctor         = app.doctor_id;
+              const slot           = app.sechdule_Id;
               const alreadyReviewed = reviewedIds.has(app._id);
-              const joinable = (app.status === 'booked' || app.status === 'ongoing') && isJoinable(slot);
-              const initials = (doctor?.first_Name?.charAt(0) || 'D').toUpperCase();
+              const joinable       = (app.status === 'booked' || app.status === 'ongoing') && isJoinable(slot);
+              const initials       = (doctor?.first_Name?.charAt(0) || 'D').toUpperCase();
+              const isBooked       = app.status === 'booked';
 
               return (
                 <div
                   key={app._id}
                   className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:-translate-y-1 hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden"
                 >
-                  {/* Card top accent bar */}
+                  {/* Accent bar */}
                   <div className={`h-1 w-full ${
-                    app.status === 'booked' ? 'bg-emerald-400' :
-                    app.status === 'ongoing' ? 'bg-blue-400' :
+                    app.status === 'booked'    ? 'bg-emerald-400' :
+                    app.status === 'ongoing'   ? 'bg-blue-400' :
                     app.status === 'cancelled' ? 'bg-rose-400' :
                     'bg-slate-200'
                   }`} />
@@ -513,70 +623,94 @@ const MyAppointments = () => {
                     </div>
 
                     {/* Action footer */}
-                    <div className="mt-auto pt-4 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <div className="mt-auto pt-4 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
                       <span className="text-[10px] text-slate-300 font-mono">#{app._id.slice(-6).toUpperCase()}</span>
 
-                      {/* Join call — red pulse */}
-                      {joinable ? (
-                        <Link
-                          to={`/room/${app.meeting_id}`}
-                          className="relative flex items-center gap-1.5 bg-[#00B4A0] hover:bg-teal-400 text-white text-sm font-bold py-2 px-4 rounded-xl shadow-md shadow-[#00B4A0]/30 transition-all"
-                        >
-                          <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
-                          </span>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                          Join Call
-                        </Link>
-
-                      ) : (app.status === 'booked' || app.status === 'ongoing') ? (
-                        <span className="text-xs text-slate-400 font-medium">
-                          {slot?.startTime ? `Starts at ${formatTime(slot.startTime)}` : 'Upcoming'}
-                        </span>
-
-                      ) : app.status === 'completed' ? (
-                        alreadyReviewed ? (
-                          <span className="flex items-center gap-1 text-xs text-amber-500 font-semibold">
-                            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                            </svg>
-                            Reviewed
-                          </span>
-                        ) : (
+                      <div className="flex items-center gap-2 flex-wrap justify-end">
+                        {/* Cancel button — only for booked appointments */}
+                        {isBooked && (
                           <button
-                            onClick={() => setActiveReview(app)}
-                            className="text-sm font-bold text-[#00B4A0] hover:text-teal-400 flex items-center gap-1.5 transition"
+                            onClick={() => setCancelTarget(app)}
+                            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                            style={{
+                              border: '1px solid #DC2626',
+                              color: '#DC2626',
+                              backgroundColor: 'transparent',
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fef2f2'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                            </svg>
-                            Leave a Review
+                            Cancel
                           </button>
-                        )
+                        )}
 
-                      ) : app.status === 'cancelled' && app.is_rescheduled_token ? (
-                        <button
-                          onClick={() => openRedeemModal(app)}
-                          className="flex items-center gap-1.5 bg-[#00B4A0]/10 hover:bg-[#00B4A0]/20 text-[#00B4A0] font-bold text-xs px-3 py-1.5 rounded-xl border border-[#00B4A0]/20 transition"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
-                          Rebook Free
-                        </button>
-                      ) : (
-                        <span className="text-slate-400 text-xs font-medium capitalize">{app.status}</span>
-                      )}
+                        {/* Join call */}
+                        {joinable ? (
+                          <Link
+                            to={`/room/${app.meeting_id}`}
+                            className="relative flex items-center gap-1.5 bg-[#00B4A0] hover:bg-teal-400 text-white text-sm font-bold py-2 px-4 rounded-xl shadow-md shadow-[#00B4A0]/30 transition-all"
+                          >
+                            <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
+                            </span>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                            Join Call
+                          </Link>
+
+                        ) : isBooked ? (
+                          <span className="text-xs text-slate-400 font-medium">
+                            {slot?.startTime ? `Starts at ${formatTime(slot.startTime)}` : 'Upcoming'}
+                          </span>
+
+                        ) : app.status === 'ongoing' ? (
+                          <span className="text-xs text-slate-400 font-medium">
+                            {slot?.startTime ? `Starts at ${formatTime(slot.startTime)}` : 'Upcoming'}
+                          </span>
+
+                        ) : app.status === 'completed' ? (
+                          alreadyReviewed ? (
+                            <span className="flex items-center gap-1 text-xs text-amber-500 font-semibold">
+                              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                              </svg>
+                              Reviewed
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => setActiveReview(app)}
+                              className="text-sm font-bold text-[#00B4A0] hover:text-teal-400 flex items-center gap-1.5 transition"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                              </svg>
+                              Leave a Review
+                            </button>
+                          )
+
+                        ) : app.status === 'cancelled' && app.is_rescheduled_token ? (
+                          <button
+                            onClick={() => openRedeemModal(app)}
+                            className="flex items-center gap-1.5 bg-[#00B4A0]/10 hover:bg-[#00B4A0]/20 text-[#00B4A0] font-bold text-xs px-3 py-1.5 rounded-xl border border-[#00B4A0]/20 transition"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            Rebook Free
+                          </button>
+                        ) : (
+                          <span className="text-slate-400 text-xs font-medium capitalize">{app.status}</span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Notes download */}
                     {app.status === 'completed' && notesInfo[app._id]?.status === 'complete' && (
                       <div className="mt-3 pt-3 border-t border-slate-100">
                         <a
-                          href={`${import.meta.env.VITE_API_URL}${notesInfo[app._id].download_url}`}
+                          href={`${API_BASE}${notesInfo[app._id].download_url}`}
                           download
                           className={`text-sm font-semibold flex items-center gap-2 transition-all duration-500 px-3 py-2.5 rounded-xl w-full justify-center
                             ${newlyReady.has(app._id)
@@ -608,6 +742,16 @@ const MyAppointments = () => {
         />
       )}
 
+      {/* ── CANCEL CONFIRM MODAL ── */}
+      {cancelTarget && (
+        <CancelModal
+          appointment={cancelTarget}
+          onClose={() => { if (!cancelLoading) setCancelTarget(null); }}
+          onConfirm={handleCancelConfirm}
+          loading={cancelLoading}
+        />
+      )}
+
       {/* ── RESCHEDULE TOKEN MODAL ── */}
       {redeemTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -617,7 +761,6 @@ const MyAppointments = () => {
           />
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg p-8 z-10 max-h-[90vh] overflow-y-auto">
 
-            {/* Modal header */}
             <div className="text-center mb-6">
               <div className="w-14 h-14 bg-[#00B4A0]/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <svg className="w-7 h-7 text-[#00B4A0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -635,7 +778,6 @@ const MyAppointments = () => {
               </p>
             </div>
 
-            {/* Status message */}
             {redeemMsg && (
               <div className={`mb-5 p-3 rounded-xl text-sm font-medium text-center border ${
                 redeemMsg.type === 'success'
@@ -646,7 +788,6 @@ const MyAppointments = () => {
               </div>
             )}
 
-            {/* Slot picker */}
             {redeemLoading && !redeemMsg ? (
               <div className="flex flex-col items-center justify-center py-10 gap-3">
                 <div className="w-8 h-8 border-4 border-[#00B4A0]/20 border-t-[#00B4A0] rounded-full animate-spin" />
@@ -661,7 +802,7 @@ const MyAppointments = () => {
               <div className="space-y-3 mb-6">
                 {Object.keys(redeemSlots).sort().map((dateKey) => {
                   const isOpen = redeemExpandedDate === dateKey;
-                  const slots = redeemSlots[dateKey];
+                  const slots  = redeemSlots[dateKey];
                   return (
                     <div
                       key={dateKey}
@@ -717,7 +858,6 @@ const MyAppointments = () => {
               </div>
             )}
 
-            {/* Selected slot summary */}
             {redeemSelectedSlot && (
               <div className="bg-[#00B4A0]/5 border border-[#00B4A0]/20 rounded-2xl p-4 mb-6 text-sm space-y-2">
                 <p className="font-bold text-[#0A2540] mb-2">Selected Slot</p>
@@ -740,7 +880,6 @@ const MyAppointments = () => {
               </div>
             )}
 
-            {/* Modal actions */}
             <div className="flex gap-3">
               <button
                 onClick={() => { setRedeemTarget(null); setRedeemMsg(null); setRedeemSelectedSlot(null); }}

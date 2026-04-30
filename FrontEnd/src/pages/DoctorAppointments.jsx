@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
+const emptyMedicine = () => ({ name: '', dosage: '', frequency: '', duration: '', instructions: '' });
+
 const DoctorAppointments = () => {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -10,6 +14,25 @@ const DoctorAppointments = () => {
   const [rescheduleTarget, setRescheduleTarget] = useState(null);
   const [rescheduleLoading, setRescheduleLoading] = useState(false);
   const [rescheduleMsg, setRescheduleMsg] = useState(null);
+
+  // History modal state
+  const [historyModal, setHistoryModal] = useState(null); // { patientId, patientName }
+  const [historyData, setHistoryData] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyTab, setHistoryTab] = useState('appointments');
+
+  // Prescription modal state
+  const [prescriptionModal, setPrescriptionModal] = useState(null); // { appointmentId, patientName }
+  const [prescriptionData, setPrescriptionData] = useState({
+    diagnosis: '',
+    medicines: [emptyMedicine()],
+    advice: '',
+    follow_up_date: '',
+    vital_signs: { blood_pressure: '', temperature: '', pulse: '', weight: '' },
+  });
+  const [prescriptionLoading, setPrescriptionLoading] = useState(false);
+  const [prescriptionSubmitting, setPrescriptionSubmitting] = useState(false);
+  const [prescriptionToast, setPrescriptionToast] = useState(false);
 
   // Live clock — ticks every 30s so isJoinable stays accurate
   useEffect(() => {
@@ -23,6 +46,11 @@ const DoctorAppointments = () => {
     const ampm = h >= 12 ? 'PM' : 'AM';
     const formattedH = h % 12 || 12;
     return `${formattedH}:${String(m).padStart(2, '0')} ${ampm}`;
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    return new Date(dateStr).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   // Returns true only if slot is today AND current time is within [startTime-5min, endTime)
@@ -42,9 +70,7 @@ const DoctorAppointments = () => {
   useEffect(() => {
     const fetchAppointments = async () => {
       try {
-        const res = await axios.get(`${import.meta.env.VITE_API_URL}/Doctor_Appointments`, {
-          withCredentials: true
-        });
+        const res = await axios.get(`${API_BASE}/Doctor_Appointments`, { withCredentials: true });
         if (res.data.status === 1) {
           setAppointments(res.data.data);
         } else {
@@ -62,18 +88,16 @@ const DoctorAppointments = () => {
     };
 
     fetchAppointments();
-
-    // Re-fetch when user returns to this tab (e.g. after leaving a video call)
     window.addEventListener('focus', fetchAppointments);
     return () => window.removeEventListener('focus', fetchAppointments);
   }, []);
 
   const getStatusBadge = (status) => {
     switch (status) {
-      case 'booked':   return 'text-[#00B4A0] bg-[#00B4A0]/10 border border-[#00B4A0]/20';
-      case 'ongoing':  return 'text-amber-700 bg-amber-100 border border-amber-200';
+      case 'booked':    return 'text-[#00B4A0] bg-[#00B4A0]/10 border border-[#00B4A0]/20';
+      case 'ongoing':   return 'text-amber-700 bg-amber-100 border border-amber-200';
       case 'cancelled': return 'text-red-600 bg-red-50 border border-red-200';
-      default:         return 'text-slate-500 bg-slate-100 border border-slate-200';
+      default:          return 'text-slate-500 bg-slate-100 border border-slate-200';
     }
   };
 
@@ -83,7 +107,7 @@ const DoctorAppointments = () => {
     setRescheduleMsg(null);
     try {
       const res = await axios.post(
-        `${import.meta.env.VITE_API_URL}/Reschedule_Appointment/${rescheduleTarget._id}`,
+        `${API_BASE}/Reschedule_Appointment/${rescheduleTarget._id}`,
         {},
         { withCredentials: true }
       );
@@ -102,6 +126,107 @@ const DoctorAppointments = () => {
     }
   };
 
+  // ── History Modal ────────────────────────────────────────────────────────────
+  const openHistoryModal = async (patientId, patientName) => {
+    setHistoryModal({ patientId, patientName });
+    setHistoryData(null);
+    setHistoryTab('appointments');
+    setHistoryLoading(true);
+    try {
+      const res = await axios.get(`${API_BASE}/doctor/patient-history/${patientId}`, { withCredentials: true });
+      if (res.data.success) {
+        setHistoryData(res.data.data);
+      } else {
+        setHistoryData({ appointments: [], prescriptions: [] });
+      }
+    } catch {
+      setHistoryData({ appointments: [], prescriptions: [] });
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const closeHistoryModal = () => {
+    setHistoryModal(null);
+    setHistoryData(null);
+  };
+
+  // ── Prescription Modal ────────────────────────────────────────────────────────
+  const openPrescriptionModal = async (appointmentId, patientName) => {
+    setPrescriptionModal({ appointmentId, patientName });
+    setPrescriptionLoading(true);
+    setPrescriptionData({
+      diagnosis: '',
+      medicines: [emptyMedicine()],
+      advice: '',
+      follow_up_date: '',
+      vital_signs: { blood_pressure: '', temperature: '', pulse: '', weight: '' },
+    });
+    try {
+      const res = await axios.get(`${API_BASE}/prescription/${appointmentId}`, { withCredentials: true });
+      if (res.data.success && res.data.data) {
+        const d = res.data.data;
+        setPrescriptionData({
+          diagnosis: d.diagnosis || '',
+          medicines: d.medicines?.length ? d.medicines : [emptyMedicine()],
+          advice: d.advice || '',
+          follow_up_date: d.follow_up_date ? d.follow_up_date.slice(0, 10) : '',
+          vital_signs: {
+            blood_pressure: d.vital_signs?.blood_pressure || '',
+            temperature: d.vital_signs?.temperature || '',
+            pulse: d.vital_signs?.pulse || '',
+            weight: d.vital_signs?.weight || '',
+          },
+        });
+      }
+    } catch {
+      // no existing prescription — defaults already set
+    } finally {
+      setPrescriptionLoading(false);
+    }
+  };
+
+  const closePrescriptionModal = () => {
+    setPrescriptionModal(null);
+  };
+
+  const handleMedicineChange = (index, field, value) => {
+    setPrescriptionData(prev => {
+      const updated = [...prev.medicines];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, medicines: updated };
+    });
+  };
+
+  const addMedicine = () => {
+    setPrescriptionData(prev => ({ ...prev, medicines: [...prev.medicines, emptyMedicine()] }));
+  };
+
+  const removeMedicine = (index) => {
+    setPrescriptionData(prev => ({ ...prev, medicines: prev.medicines.filter((_, i) => i !== index) }));
+  };
+
+  const handlePrescriptionSubmit = async (e) => {
+    e.preventDefault();
+    if (!prescriptionModal) return;
+    setPrescriptionSubmitting(true);
+    try {
+      await axios.post(
+        `${API_BASE}/prescription/${prescriptionModal.appointmentId}`,
+        prescriptionData,
+        { withCredentials: true }
+      );
+      setPrescriptionToast(true);
+      setTimeout(() => setPrescriptionToast(false), 3000);
+      closePrescriptionModal();
+    } catch (err) {
+      // silently fail — could add error toast here if needed
+    } finally {
+      setPrescriptionSubmitting(false);
+    }
+  };
+
+  // ── Render ──────────────────────────────────────────────────────────────────
   if (loading) return (
     <div className="min-h-screen bg-[#F4F7F9] flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
@@ -139,10 +264,8 @@ const DoctorAppointments = () => {
 
         {/* Navy Hero Strip */}
         <div className="relative bg-[#0A2540] overflow-hidden">
-          {/* Glow blobs */}
           <div className="absolute top-0 right-0 w-72 h-72 bg-[#00B4A0]/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
           <div className="absolute bottom-0 left-10 w-48 h-48 bg-[#00B4A0]/8 rounded-full blur-2xl translate-y-1/2" />
-
           <div className="relative max-w-6xl mx-auto px-5 py-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <p className="text-xs font-bold text-[#00B4A0] uppercase tracking-widest mb-2">Doctor Portal</p>
@@ -170,7 +293,6 @@ const DoctorAppointments = () => {
           )}
 
           {appointments.length === 0 && !error ? (
-            /* Empty State */
             <div className="text-center py-24 bg-white rounded-2xl shadow-sm border border-slate-100">
               <div className="w-20 h-20 bg-[#00B4A0]/10 rounded-2xl flex items-center justify-center mx-auto mb-5">
                 <svg className="w-10 h-10 text-[#00B4A0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -181,7 +303,6 @@ const DoctorAppointments = () => {
               <p className="text-slate-400 mt-2 text-sm">You don't have any booked appointments yet.</p>
             </div>
           ) : (
-            /* 3-Column Card Grid */
             <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
               {appointments.map((app) => {
                 const patient = app.patient_id;
@@ -194,7 +315,7 @@ const DoctorAppointments = () => {
                     key={app._id}
                     className="group bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col hover:-translate-y-1 hover:shadow-md transition-all duration-300"
                   >
-                    {/* Card Header: Patient info + status */}
+                    {/* Card Header */}
                     <div className="p-5 flex items-center gap-4 border-b border-slate-50">
                       <div className="w-12 h-12 rounded-full bg-[#00B4A0]/10 text-[#00B4A0] flex items-center justify-center font-extrabold text-lg border border-[#00B4A0]/20 flex-shrink-0">
                         {initials}
@@ -211,7 +332,7 @@ const DoctorAppointments = () => {
                       </div>
                     </div>
 
-                    {/* Card Body: Date & Time */}
+                    {/* Card Body */}
                     <div className="p-5 flex-1 space-y-3">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-[#00B4A0]/10 flex items-center justify-center flex-shrink-0">
@@ -220,9 +341,7 @@ const DoctorAppointments = () => {
                           </svg>
                         </div>
                         <span className="text-sm font-semibold text-slate-700">
-                          {slot?.date
-                            ? new Date(slot.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
-                            : 'N/A'}
+                          {slot?.date ? formatDate(slot.date) : 'N/A'}
                         </span>
                       </div>
                       <div className="flex items-center gap-3">
@@ -234,6 +353,33 @@ const DoctorAppointments = () => {
                         <span className="text-sm font-semibold text-slate-700">
                           {formatTime(slot?.startTime)} &ndash; {formatTime(slot?.endTime)}
                         </span>
+                      </div>
+
+                      {/* History + Prescription buttons */}
+                      <div className="flex gap-2 pt-1">
+                        {/* History — teal outline */}
+                        {patient?._id && (
+                          <button
+                            onClick={() => openHistoryModal(patient._id, `${patient.first_Name} ${patient.last_Name}`)}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-[#00B4A0] text-[#00B4A0] bg-white text-xs font-bold hover:bg-[#00B4A0]/8 transition-all"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            History
+                          </button>
+                        )}
+
+                        {/* Prescription — navy filled */}
+                        <button
+                          onClick={() => openPrescriptionModal(app._id, patient ? `${patient.first_Name} ${patient.last_Name}` : 'Patient')}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#0A2540] text-white text-xs font-bold hover:bg-[#0d2f4f] transition-all"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                          </svg>
+                          Prescription
+                        </button>
                       </div>
                     </div>
 
@@ -286,7 +432,7 @@ const DoctorAppointments = () => {
         </div>
       </div>
 
-      {/* Reschedule Confirmation Modal */}
+      {/* ── Reschedule Confirmation Modal ─────────────────────────────────────── */}
       {rescheduleTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
@@ -294,8 +440,6 @@ const DoctorAppointments = () => {
             onClick={() => { if (!rescheduleLoading) { setRescheduleTarget(null); setRescheduleMsg(null); } }}
           />
           <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 z-10">
-
-            {/* Warning icon */}
             <div className="text-center mb-6">
               <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <svg className="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -310,7 +454,6 @@ const DoctorAppointments = () => {
               </p>
             </div>
 
-            {/* Appointment summary */}
             <div className="bg-[#F4F7F9] rounded-2xl p-4 border border-slate-100 mb-6 space-y-2.5 text-sm">
               <div className="flex justify-between items-center">
                 <span className="text-slate-400 font-medium">Patient</span>
@@ -321,9 +464,7 @@ const DoctorAppointments = () => {
               <div className="flex justify-between items-center">
                 <span className="text-slate-400 font-medium">Date</span>
                 <span className="font-bold text-[#0A2540]">
-                  {rescheduleTarget.sechdule_Id?.date
-                    ? new Date(rescheduleTarget.sechdule_Id.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
-                    : 'N/A'}
+                  {rescheduleTarget.sechdule_Id?.date ? formatDate(rescheduleTarget.sechdule_Id.date) : 'N/A'}
                 </span>
               </div>
               <div className="flex justify-between items-center">
@@ -367,6 +508,318 @@ const DoctorAppointments = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── Patient History Modal ──────────────────────────────────────────────── */}
+      {historyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeHistoryModal} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto z-10">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white border-b border-slate-100 px-8 py-5 flex items-center justify-between rounded-t-2xl z-10">
+              <div>
+                <p className="text-xs font-bold text-[#00B4A0] uppercase tracking-widest mb-0.5">Patient</p>
+                <h2 className="text-xl font-extrabold text-[#0A2540]">{historyModal.patientName} — Medical History</h2>
+              </div>
+              <button
+                onClick={closeHistoryModal}
+                className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="px-8 pt-5 flex gap-2 border-b border-slate-100">
+              {['appointments', 'prescriptions'].map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setHistoryTab(tab)}
+                  className={`px-4 py-2 rounded-t-xl text-sm font-bold capitalize transition-all border-b-2 -mb-px ${
+                    historyTab === tab
+                      ? 'border-[#00B4A0] text-[#00B4A0] bg-[#00B4A0]/5'
+                      : 'border-transparent text-slate-400 hover:text-slate-600'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab Content */}
+            <div className="p-8">
+              {historyLoading ? (
+                <div className="flex flex-col items-center gap-4 py-12">
+                  <div className="w-10 h-10 border-4 border-[#00B4A0] border-t-transparent rounded-full animate-spin" />
+                  <p className="text-slate-400 text-sm">Loading history...</p>
+                </div>
+              ) : historyTab === 'appointments' ? (
+                historyData?.appointments?.length ? (
+                  <div className="space-y-3">
+                    {historyData.appointments.map((appt, i) => (
+                      <div key={appt._id || i} className="flex items-center justify-between p-4 rounded-xl bg-[#F4F7F9] border border-slate-100">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-sm font-bold text-[#0A2540]">
+                            {appt.sechdule_Id?.date ? formatDate(appt.sechdule_Id.date) : 'N/A'}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            {appt.doctor_id ? `Dr. ${appt.doctor_id.first_Name || ''} ${appt.doctor_id.last_Name || ''}`.trim() : 'Doctor'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-semibold text-slate-500">
+                            {appt.sechdule_Id?.startTime ? formatTime(appt.sechdule_Id.startTime) : ''}
+                            {appt.sechdule_Id?.endTime ? ` – ${formatTime(appt.sechdule_Id.endTime)}` : ''}
+                          </span>
+                          <span className={`px-2.5 py-0.5 text-[10px] rounded-full uppercase font-bold tracking-wide ${getStatusBadge(appt.status)}`}>
+                            {appt.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-slate-400 text-sm font-medium">No history yet.</div>
+                )
+              ) : (
+                /* Prescriptions tab */
+                historyData?.prescriptions?.length ? (
+                  <div className="space-y-4">
+                    {historyData.prescriptions.map((rx, i) => (
+                      <div key={rx._id || i} className="p-5 rounded-xl bg-[#F4F7F9] border border-slate-100">
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div>
+                            <p className="text-sm font-extrabold text-[#0A2540]">{rx.diagnosis || 'No diagnosis'}</p>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              {rx.doctor_id ? `Dr. ${rx.doctor_id.first_Name || ''} ${rx.doctor_id.last_Name || ''}`.trim() : 'Doctor'}
+                              {rx.createdAt ? ` · ${formatDate(rx.createdAt)}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                        {rx.medicines?.length > 0 && (
+                          <div className="space-y-1.5">
+                            {rx.medicines.map((med, mi) => (
+                              <div key={mi} className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
+                                <span className="font-semibold text-[#0A2540]">{med.name}</span>
+                                {med.dosage && <span className="text-slate-500">{med.dosage}</span>}
+                                {med.frequency && <span className="text-slate-500">{med.frequency}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-slate-400 text-sm font-medium">No prescriptions yet.</div>
+                )
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Prescription Modal ─────────────────────────────────────────────────── */}
+      {prescriptionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closePrescriptionModal} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto z-10">
+
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white border-b border-slate-100 px-8 py-5 flex items-center justify-between rounded-t-2xl z-10">
+              <div>
+                <p className="text-xs font-bold text-[#00B4A0] uppercase tracking-widest mb-0.5">Prescription</p>
+                <h2 className="text-xl font-extrabold text-[#0A2540]">{prescriptionModal.patientName}</h2>
+              </div>
+              <button
+                onClick={closePrescriptionModal}
+                className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {prescriptionLoading ? (
+              <div className="flex flex-col items-center gap-4 py-16">
+                <div className="w-10 h-10 border-4 border-[#00B4A0] border-t-transparent rounded-full animate-spin" />
+                <p className="text-slate-400 text-sm">Loading prescription...</p>
+              </div>
+            ) : (
+              <form onSubmit={handlePrescriptionSubmit} className="p-8 space-y-7">
+
+                {/* Vital Signs */}
+                <div>
+                  <h3 className="text-sm font-extrabold text-[#0A2540] uppercase tracking-wider mb-3">Vital Signs</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { key: 'blood_pressure', label: 'Blood Pressure', placeholder: '120/80' },
+                      { key: 'temperature',    label: 'Temperature',    placeholder: '98.6°F' },
+                      { key: 'pulse',          label: 'Pulse',          placeholder: '72 bpm' },
+                      { key: 'weight',         label: 'Weight',         placeholder: '70 kg' },
+                    ].map(({ key, label, placeholder }) => (
+                      <div key={key}>
+                        <label className="block text-xs font-semibold text-slate-500 mb-1">{label}</label>
+                        <input
+                          type="text"
+                          placeholder={placeholder}
+                          value={prescriptionData.vital_signs[key]}
+                          onChange={e => setPrescriptionData(prev => ({
+                            ...prev,
+                            vital_signs: { ...prev.vital_signs, [key]: e.target.value }
+                          }))}
+                          className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-[#F4F7F9] text-sm text-[#0A2540] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00B4A0]/40 focus:border-[#00B4A0] transition"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Diagnosis */}
+                <div>
+                  <label className="block text-sm font-extrabold text-[#0A2540] uppercase tracking-wider mb-2">
+                    Diagnosis <span className="text-red-400">*</span>
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    placeholder="Enter diagnosis..."
+                    value={prescriptionData.diagnosis}
+                    onChange={e => setPrescriptionData(prev => ({ ...prev, diagnosis: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-[#F4F7F9] text-sm text-[#0A2540] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00B4A0]/40 focus:border-[#00B4A0] transition resize-none"
+                  />
+                </div>
+
+                {/* Medicines */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-extrabold text-[#0A2540] uppercase tracking-wider">Medicines</h3>
+                    <button
+                      type="button"
+                      onClick={addMedicine}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#00B4A0]/10 text-[#00B4A0] text-xs font-bold hover:bg-[#00B4A0]/20 transition-all"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add Medicine
+                    </button>
+                  </div>
+
+                  {prescriptionData.medicines.length === 0 && (
+                    <p className="text-xs text-slate-400 text-center py-4">No medicines added.</p>
+                  )}
+
+                  <div className="space-y-4">
+                    {prescriptionData.medicines.map((med, idx) => (
+                      <div key={idx} className="relative p-4 rounded-xl bg-[#F4F7F9] border border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => removeMedicine(idx)}
+                          className="absolute top-3 right-3 w-6 h-6 rounded-lg bg-red-50 border border-red-100 flex items-center justify-center text-red-400 hover:bg-red-100 transition-all"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                        <p className="text-xs font-bold text-slate-500 mb-3">Medicine {idx + 1}</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { field: 'name',         label: 'Name',         placeholder: 'e.g. Amoxicillin' },
+                            { field: 'dosage',        label: 'Dosage',       placeholder: 'e.g. 500mg' },
+                            { field: 'frequency',     label: 'Frequency',    placeholder: 'e.g. Twice daily' },
+                            { field: 'duration',      label: 'Duration',     placeholder: 'e.g. 7 days' },
+                          ].map(({ field, label, placeholder }) => (
+                            <div key={field}>
+                              <label className="block text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wide">{label}</label>
+                              <input
+                                type="text"
+                                placeholder={placeholder}
+                                value={med[field]}
+                                onChange={e => handleMedicineChange(idx, field, e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs text-[#0A2540] placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#00B4A0]/30 focus:border-[#00B4A0] transition"
+                              />
+                            </div>
+                          ))}
+                          <div className="col-span-2">
+                            <label className="block text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wide">Instructions</label>
+                            <input
+                              type="text"
+                              placeholder="e.g. Take after meals"
+                              value={med.instructions}
+                              onChange={e => handleMedicineChange(idx, 'instructions', e.target.value)}
+                              className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs text-[#0A2540] placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#00B4A0]/30 focus:border-[#00B4A0] transition"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Advice */}
+                <div>
+                  <label className="block text-sm font-extrabold text-[#0A2540] uppercase tracking-wider mb-2">Advice</label>
+                  <textarea
+                    rows={2}
+                    placeholder="General advice for the patient..."
+                    value={prescriptionData.advice}
+                    onChange={e => setPrescriptionData(prev => ({ ...prev, advice: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-[#F4F7F9] text-sm text-[#0A2540] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00B4A0]/40 focus:border-[#00B4A0] transition resize-none"
+                  />
+                </div>
+
+                {/* Follow-up Date */}
+                <div>
+                  <label className="block text-sm font-extrabold text-[#0A2540] uppercase tracking-wider mb-2">Follow-up Date</label>
+                  <input
+                    type="date"
+                    value={prescriptionData.follow_up_date}
+                    onChange={e => setPrescriptionData(prev => ({ ...prev, follow_up_date: e.target.value }))}
+                    className="w-full sm:w-56 px-4 py-2.5 rounded-xl border border-slate-200 bg-[#F4F7F9] text-sm text-[#0A2540] focus:outline-none focus:ring-2 focus:ring-[#00B4A0]/40 focus:border-[#00B4A0] transition"
+                  />
+                </div>
+
+                {/* Submit */}
+                <div className="flex gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={closePrescriptionModal}
+                    className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={prescriptionSubmitting}
+                    className="flex-1 py-3 rounded-xl bg-[#0A2540] hover:bg-[#0d2f4f] text-white font-bold text-sm transition disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {prescriptionSubmitting ? (
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    ) : null}
+                    Save Prescription
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Success Toast ──────────────────────────────────────────────────────── */}
+      {prescriptionToast && (
+        <div className="fixed bottom-6 right-6 z-[60] flex items-center gap-3 bg-[#0A2540] text-white px-5 py-3.5 rounded-2xl shadow-xl text-sm font-semibold animate-fade-in">
+          <svg className="w-4 h-4 text-[#00B4A0] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+          </svg>
+          Prescription saved
         </div>
       )}
     </>

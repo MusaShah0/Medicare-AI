@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
+const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
 const cleanupVideoSDKDOM = () => {
   document.querySelectorAll('[id^="videosdk"]').forEach(el => el.remove());
   document.querySelectorAll('.__sdk-container, [class*="videosdk"]').forEach(el => el.remove());
@@ -21,7 +23,7 @@ const ReviewForm = ({ appointmentId, doctorName, onDone }) => {
     if (rating === 0) { setError('Please select a rating.'); return; }
     setSubmitting(true);
     try {
-      await axios.post(`${import.meta.env.VITE_API_URL}/review`,
+      await axios.post(`${API}/review`,
         { appointment_id: appointmentId, rating, review },
         { withCredentials: true }
       );
@@ -401,7 +403,7 @@ const VideoCall = () => {
       formData.append('audio', blob, `recording${ext}`);
 
       const res = await axios.post(
-        `${import.meta.env.VITE_API_URL}/appointments/${appointmentId}/upload-audio`,
+        `${API}/appointments/${appointmentId}/upload-audio`,
         formData,
         {
           withCredentials: true,
@@ -449,7 +451,7 @@ const VideoCall = () => {
     // Notify backend — marks appointment completed + stops VideoSDK recording if active
     if (data?.appointmentId) {
       try {
-        await axios.post(`${import.meta.env.VITE_API_URL}/end-meeting/${data.appointmentId}`, {}, { withCredentials: true });
+        await axios.post(`${API}/end-meeting/${data.appointmentId}`, {}, { withCredentials: true });
         console.log('[Notes] ✅ Backend notified — appointment marked completed');
       } catch (err) {
         console.log('[Notes] end-meeting response:', err.response?.data?.message || err.message);
@@ -494,7 +496,7 @@ const VideoCall = () => {
   useEffect(() => {
     const validate = async () => {
       try {
-        const res = await axios.get(`${import.meta.env.VITE_API_URL}/join-meeting/${roomId}`, { withCredentials: true });
+        const res = await axios.get(`${API}/join-meeting/${roomId}`, { withCredentials: true });
         if (res.data.status === 1) {
           setMeetingData(res.data);
           setTimeLeft(res.data.remainingTime);

@@ -11,6 +11,8 @@ const {
   Redeem_Reschedule,
   End_Meeting_Early,
   Doctor_Dashboard_Stats,
+  Cancel_Appointment,
+  Patient_Dashboard_Stats,
 } = require('../Controlers/Appoitment.controller');
 
 const Patient_Check = require('../MiddleWare/Patient.middleware');
@@ -37,5 +39,11 @@ Apppoitment_Routes.post('/Redeem_Reschedule/:appointmentId/:scheduleId', Patient
 
 // End meeting early (when participants leave before scheduled end time)
 Apppoitment_Routes.post('/end-meeting/:appointmentId', AnyUser_Check, End_Meeting_Early);
+
+// Patient cancels their own booked appointment
+Apppoitment_Routes.post('/cancel-appointment/:appointmentId', Patient_Check, Cancel_Appointment);
+
+// Patient dashboard stats
+Apppoitment_Routes.get('/patient/dashboard-stats', Patient_Check, Patient_Dashboard_Stats);
 
 module.exports = Apppoitment_Routes;

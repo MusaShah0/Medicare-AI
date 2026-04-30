@@ -25,6 +25,7 @@ import FindDoctors from './pages/FindDoctors';
 import BookAppointment from './pages/BookAppointment';
 import MyAppointments from './pages/MyAppointments';
 import AIChat from './pages/AIChat';
+import PatientEditProfile from './pages/PatientEditProfile';
 
 // ─── Spinner shown while cookie is being verified ────────────────────────────
 const AuthLoader = () => (
@@ -106,6 +107,7 @@ function App() {
         <Route path="/book-appointment/:id"    element={<PatientRoute><BookAppointment /></PatientRoute>} />
         <Route path="/my-appointments"         element={<PatientRoute><MyAppointments /></PatientRoute>} />
         <Route path="/ai-chat"                 element={<PatientRoute><AIChat /></PatientRoute>} />
+        <Route path="/patient/edit-profile"    element={<PatientRoute><PatientEditProfile /></PatientRoute>} />
 
         {/* ── Video call — requires any authenticated user ── */}
         <Route path="/room/:roomId" element={<AnyRoute><VideoCall /></AnyRoute>} />
