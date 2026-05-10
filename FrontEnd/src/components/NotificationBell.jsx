@@ -126,7 +126,7 @@ export default function NotificationBell({ role }) {
           position: 'absolute',
           top: 'calc(100% + 8px)',
           right: 0,
-          width: '320px',
+          width: '380px',
           background: '#fff',
           borderRadius: '16px',
           boxShadow: '0 8px 32px rgba(10,37,64,0.18)',
@@ -180,7 +180,7 @@ export default function NotificationBell({ role }) {
           </div>
 
           {/* List */}
-          <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
+          <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
             {notifications.length === 0 ? (
               <div style={{
                 padding: '32px 16px',
@@ -203,8 +203,8 @@ export default function NotificationBell({ role }) {
                   style={{
                     display: 'flex',
                     alignItems: 'flex-start',
-                    gap: '10px',
-                    padding: '12px 16px',
+                    gap: '12px',
+                    padding: '14px 18px',
                     borderBottom: '1px solid #F8FAFC',
                     cursor: n.read ? 'default' : 'pointer',
                     borderLeft: n.read ? '4px solid transparent' : '4px solid #00B4A0',
@@ -228,18 +228,18 @@ export default function NotificationBell({ role }) {
                       fontWeight: n.read ? '500' : '700',
                       fontSize: '13px',
                       color: '#0A2540',
-                      marginBottom: '2px',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
+                      marginBottom: '3px',
+                      lineHeight: '1.4',
+                      wordBreak: 'break-word',
                     }}>
                       {n.title}
                     </p>
                     <p style={{
                       fontSize: '12px',
                       color: '#64748B',
-                      lineHeight: '1.4',
-                      marginBottom: '4px',
+                      lineHeight: '1.5',
+                      marginBottom: '5px',
+                      wordBreak: 'break-word',
                     }}>
                       {n.message}
                     </p>

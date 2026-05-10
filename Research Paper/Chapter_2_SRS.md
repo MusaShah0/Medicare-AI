@@ -126,6 +126,7 @@ The MediCare AI platform provides the following major functions to end users:
 - Search and discovery of qualified healthcare professionals by specialty and location
 - Real-time availability viewing and intelligent appointment scheduling
 - Video consultation with scheduled healthcare professionals
+- Access to digital prescriptions issued by doctors after completed consultations
 - Access to meeting notes and consultation history
 - Account profile management and preference settings
 
@@ -135,6 +136,8 @@ The MediCare AI platform provides the following major functions to end users:
 - Appointment management and consultation scheduling
 - Real-time video consultation with patients
 - Access to patient information and consultation history
+- Digital prescription creation for completed consultations (diagnosis, medicines, vital signs, advice, follow-up date)
+- View previously issued prescriptions per patient
 - Meeting notes review and documentation
 - Account and practice settings management
 
@@ -1223,6 +1226,77 @@ Doctors shall not share patient information with third parties without consent. 
 
 **BR-010: Availability and Service Level**
 System operates 24/7 with 99.5% target uptime. Scheduled maintenance windows may occur monthly (announced in advance). AI Service unavailability does not suspend appointment booking or video consultation (graceful degradation).
+
+**BR-011: Prescription Business Rules**
+A doctor may only issue one prescription per completed appointment (one-to-one enforcement via unique index on appointment_id). Prescriptions may only be created for appointments with status = 'completed'. Once issued, a prescription cannot be deleted — it constitutes a permanent clinical record. Patients may view their prescriptions but cannot edit them. Doctors may view all prescriptions they have issued but cannot view prescriptions issued by other doctors.
+
+---
+
+## 2.7.4 Prescription Management Feature
+
+**[Font: Times New Roman, Size 11, Bold]**
+
+**[Font: Times New Roman, Size 12, 1.5 Line Spacing, Justified]**
+
+#### Feature BE-PRESC: Digital Prescription Management
+
+**[Font: Times New Roman, Size 11, Bold, Italicize]**
+
+**Description and Priority:**
+Prescription management enables doctors to issue structured digital prescriptions for patients upon completion of a consultation. The prescription is linked uniquely to the appointment, contains clinical details (diagnosis, medicines with dosage/frequency/duration/instructions, vital signs, lifestyle advice, follow-up date), is persisted in MongoDB, and triggers an in-app notification to the patient. Patients can view their prescriptions through the patient portal. **Priority: HIGH**
+
+**Stimulus/Response Sequences:**
+
+*Scenario 1 — Doctor Issues Prescription*
+1. Doctor navigates to completed appointments list
+2. Doctor clicks "Write Prescription" on a completed appointment card
+3. System displays prescription form pre-populated with patient and doctor names
+4. Doctor fills: Diagnosis (text), Medicine entries (name, dosage, frequency, duration, special instructions), Vital signs (blood pressure, temperature, pulse, weight), Advice (lifestyle/dietary), Follow-up date (optional date picker)
+5. Doctor clicks "Submit Prescription"
+6. System creates Prescription document in MongoDB
+7. System creates Notification for patient ("Your prescription is ready")
+8. Doctor sees confirmation: "Prescription issued successfully"
+
+*Scenario 2 — Doctor Views Previously Issued Prescriptions*
+1. Doctor navigates to a completed appointment
+2. System shows "View Prescription" button if prescription exists for that appointment
+3. Doctor clicks "View Prescription"
+4. System retrieves and displays the prescription in read-only format
+
+*Scenario 3 — Patient Views Prescription*
+1. Patient navigates to completed appointments list
+2. Patient sees "View Prescription" button on appointments that have a linked prescription
+3. Patient clicks "View Prescription"
+4. System verifies patient owns this appointment
+5. System displays prescription: diagnosis, complete medicines list, vital signs recorded, advice, follow-up date
+
+**Functional Requirements:**
+
+**REQ-BE-PRESC-001: Prescription Creation** | **Priority: HIGH**
+The backend shall expose POST /prescriptions/:appointmentId endpoint. Endpoint shall require doctor authentication. System shall validate: (a) appointment exists, (b) requesting doctor is the assigned doctor for that appointment, (c) appointment status = 'completed', (d) no prescription already exists for this appointment. On success, system creates Prescription document and returns 201 Created.
+
+**REQ-BE-PRESC-002: Prescription Idempotency** | **Priority: HIGH**
+Only one prescription shall be allowed per appointment. Unique index on Prescription.appointment_id shall enforce this at database level. If doctor submits a second prescription for the same appointment, backend shall return 409 Conflict: "Prescription already issued for this appointment."
+
+**REQ-BE-PRESC-003: Prescription Schema** | **Priority: HIGH**
+The Prescription document shall store: appointment_id (ObjectID, unique FK), doctor_id (ObjectID, FK), patient_id (ObjectID, FK), diagnosis (String, required), medicines (Array: [{name, dosage, frequency, duration, instructions}]), vital_signs ({blood_pressure, temperature, pulse, weight}), advice (String), follow_up_date (Date, optional), createdAt, updatedAt.
+
+**REQ-BE-PRESC-004: Doctor — Retrieve Prescription** | **Priority: HIGH**
+The backend shall expose GET /prescriptions/appointment/:appointmentId for the assigned doctor to retrieve their issued prescription. If no prescription exists, system returns 404. If doctor is not the assigned doctor, system returns 403.
+
+**REQ-BE-PRESC-005: Patient — Retrieve Prescription** | **Priority: HIGH**
+The backend shall expose GET /prescriptions/my/:appointmentId for the patient to retrieve their prescription. System shall verify: (a) patient is authenticated, (b) patient_id on the prescription matches requesting patient. If not authorized, return 403.
+
+**REQ-FE-PRESC-001: Doctor Prescription Form** | **Priority: HIGH**
+The doctor portal shall display a prescription creation form on completed appointment cards. Form shall include: Diagnosis field (required, textarea), dynamic medicines table (minimum 1 row, add/remove rows), vital signs fields, advice textarea, and follow-up date picker. Form shall validate that at least one medicine entry has name and dosage before allowing submission.
+
+**REQ-FE-PRESC-002: Patient Prescription View** | **Priority: HIGH**
+The patient portal shall show a "View Prescription" button on completed appointment cards when a prescription exists. Prescription display page shall show: doctor name, consultation date, diagnosis, medicines list formatted as a prescription (name | dosage | frequency | duration | instructions), vital signs table, advice section, follow-up date. Display shall be print-friendly.
+
+**REQ-FE-PRESC-003: Prescription Notification** | **Priority: MEDIUM**
+On prescription creation, the system shall trigger a backend Notification to the patient with type = 'prescription_issued'. Patient dashboard notification badge shall update within the next polling cycle (≤ 30 seconds). Notification message: "Dr. [LastName] has issued your prescription for appointment on [date]."
+
+**Verification Method:** Integration test: doctor creates prescription → patient retrieves it; attempt duplicate → 409; non-assigned doctor attempt → 403; patient without appointment → 403.
 
 ---
 

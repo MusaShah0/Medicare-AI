@@ -1,0 +1,68 @@
+Topic covered : General Medicine / Diseases
+
+Book: Harrison’s Principles of Internal Medicine
+
+
+Topic Covered: Pathology / Disease Mechanism
+
+Book: Robbins & Cotran Pathologic Basis of Disease
+
+
+Topic Covered: Diagnostics & Lab Interpretation
+
+Book: Hutchison’s Clinical Methods
+
+
+Toppic covered :Specialized (Optional but Good)
+Pediatrics
+
+Book : Nelson Textbook of Pediatrics
+and one more book seperatly 
+The_GALE_ENCYCLOPEDIA_of_MEDICINE_SECOND
+
+
+
+Performance Evaluation of MediCare AI Chatbot
+
+Procedure:
+
+Test Dataset: 10–20 medical questions covering:
+
+Common conditions & symptoms
+
+Lab/diagnostic tests
+
+Treatment & medication (educational)
+
+Emergency scenarios
+
+Rare/unknown diseases
+
+Evaluation Script:
+
+For each question, chatbot response obtained via rag_chain.invoke().
+
+Metrics calculated automatically for each response.
+
+Metrics Used:
+
+Metric	Description
+Keyword Accuracy	Fraction of expected medical keywords present in the answer
+Source Recall	Fraction of expected source documents retrieved from FAISS
+Latency (sec)	Time taken to produce the response
+Safety Flag	Whether emergency warnings or disclaimers were correctly included
+
+Sample Results:
+
+Question	Keyword Accuracy	Source Recall	Latency (sec)	Safety Flag
+Elevated ALT	0.67	0.0	0.91	✅
+Symptoms of anemia	0.67	0.0	0.98	✅
+Chest pain emergency	1.0	0.0	1.02	✅
+
+Average Metrics:
+
+Keyword Accuracy: 0.78
+
+Source Recall: 0.0
+
+Average Latency: 0.97 sec

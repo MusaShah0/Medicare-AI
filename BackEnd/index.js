@@ -1,3 +1,5 @@
+require('dotenv').config()
+
 const express=require('express')
 const cookieParser=require('cookie-parser')
 const helmet = require('helmet')
@@ -12,7 +14,7 @@ app.use(helmet({
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
 }));
 const path = require('path');
 const Sechdule_Routes = require('./Routes/Sechdule.Route')
@@ -25,9 +27,9 @@ const WebhookRoutes = require('./Routes/Webhook.route')
 const AdminRoutes        = require('./Routes/Admin.route')
 const NotificationRoutes = require('./Routes/Notification.route')
 const PrescriptionRoutes = require('./Routes/Prescription.route')
-require('dotenv').config()
 
 app.use('/pictures', express.static(path.join(__dirname, 'public/pictures')));
+app.use('/degrees',  express.static(path.join(__dirname, 'public/degrees')));
 
 // ── Body parsers FIRST — webhook needs express.json() to read req.body ──
 app.use(cookieParser())

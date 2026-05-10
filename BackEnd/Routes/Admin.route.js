@@ -10,6 +10,7 @@ const {
   getSchedules,  removeSchedule,
   getMeetingNotes, removeMeetingNote,
   getReviews,    removeReview,
+  getPendingDoctors, approveDoctor, rejectDoctor,
 } = require('../Controlers/AdminControler');
 
 // ── Public ────────────────────────────────────────────────────────────────────
@@ -43,5 +44,10 @@ router.delete('/admin/meeting-note/:id',  AdminMW, removeMeetingNote);
 // Reviews
 router.get('/admin/reviews',       AdminMW, getReviews);
 router.delete('/admin/review/:id', AdminMW, removeReview);
+
+// Doctor approval
+router.get('/admin/pending-doctors',          AdminMW, getPendingDoctors);
+router.patch('/admin/doctor/:id/approve',     AdminMW, approveDoctor);
+router.patch('/admin/doctor/:id/reject',      AdminMW, rejectDoctor);
 
 module.exports = router;

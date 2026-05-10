@@ -4,34 +4,38 @@ const path = require('path');
 const fs = require('fs');
 const mongoose = require('mongoose');
 
-// --- MULTER SETUP (No changes here) ---
+// --- MULTER SETUP ---
 const uploadDir = path.join(__dirname, '../public/pictures');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+const degreeDir = path.join(__dirname, '../public/degrees');
+if (!fs.existsSync(degreeDir)) fs.mkdirSync(degreeDir, { recursive: true });
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, 'public/pictures'); 
+        cb(null, file.fieldname === 'degreeFile' ? 'public/degrees' : 'public/pictures');
     },
     filename: function (req, file, cb) {
-        if (!req.generatedId) {
-            req.generatedId = new mongoose.Types.ObjectId();
-        }
+        if (!req.generatedId) req.generatedId = new mongoose.Types.ObjectId();
         const ext = path.extname(file.originalname);
         cb(null, `${req.generatedId}-${Date.now()}${ext}`);
     }
 });
 
-const upload = multer({ 
-    storage: storage,
-    limits: { fileSize: 2 * 1024 * 1024 }, 
+const upload = multer({
+    storage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB covers both fields
     fileFilter: (req, file, cb) => {
-        const filetypes = /jpeg|jpg|png/;
-        const mimetype = filetypes.test(file.mimetype);
-        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-        if (mimetype && extname) return cb(null, true);
-        cb(new Error("Only .png, .jpg and .jpeg formats are allowed!"));
+        if (file.fieldname === 'profile_Picture') {
+            const ok = /jpeg|jpg|png/.test(file.mimetype) && /\.(jpeg|jpg|png)$/i.test(file.originalname);
+            return ok ? cb(null, true) : cb(new Error('Profile picture must be JPG or PNG.'));
+        }
+        if (file.fieldname === 'degreeFile') {
+            const ok = /\.(jpeg|jpg|png|pdf)$/i.test(file.originalname) &&
+                       (/image\/(jpeg|png)/.test(file.mimetype) || file.mimetype === 'application/pdf');
+            return ok ? cb(null, true) : cb(new Error('Degree file must be PDF, JPG, or PNG.'));
+        }
+        cb(null, false);
     }
 });
 
@@ -41,10 +45,10 @@ const VALID_SPECIALITIES = ['Cardiologist','Dermatologist','Neurologist','Pediat
 
 const D_SignUp = async (req, res) => {
     try {
-        const { first_Name, last_Name, ph, email, password, speciality, degrees } = req.body;
+        const { first_Name, last_Name, ph, email, password, speciality, degrees, licenseNumber } = req.body;
 
         // Input validation
-        if (!first_Name || !last_Name || !email || !password || !speciality || !ph) {
+        if (!first_Name || !last_Name || !email || !password || !speciality || !ph || !licenseNumber) {
             return res.status(400).json({ message: "All fields are required." });
         }
         if (first_Name.length > 50 || last_Name.length > 50) {
@@ -79,6 +83,9 @@ const D_SignUp = async (req, res) => {
             }
         }
 
+        const profilePic = req.files?.profile_Picture?.[0]?.filename || 'default-doctor.png';
+        const degreeFile = req.files?.degreeFile?.[0]?.filename || null;
+
         const newDoctor = new D_Model({
             _id: req.generatedId || new mongoose.Types.ObjectId(),
             first_Name,
@@ -88,30 +95,30 @@ const D_SignUp = async (req, res) => {
             password,
             speciality,
             degrees: parsedDegrees,
-            profile_Picture: req.file ? req.file.filename : "default-doctor.png"
+            licenseNumber,
+            degreeFile,
+            profile_Picture: profilePic,
+            isApproved: null  // pending admin review
         });
 
         await newDoctor.save();
-        const token = await newDoctor.Generate_Token();
 
-        res.cookie('token', token, { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production' });
-
+        // Do NOT issue token — doctor cannot log in until approved
         res.status(201).json({
             success: true,
-            // 👇 UPDATED: Added these flags for Frontend Private Route
-            login: true,
-            role: 'doctor', 
-            message: "Doctor registered successfully",
-            token,
-            doctor: {
-                id: newDoctor._id,
-                first_Name: newDoctor.first_Name,
-                profile_Picture: newDoctor.profile_Picture
-            }
+            pending: true,
+            message: "Your registration request has been forwarded to the administrator. You will be notified once your account is reviewed."
         });
 
     } catch (error) {
-        if (req.file) fs.unlinkSync(path.join('public/pictures', req.file.filename));
+        if (req.files?.profile_Picture?.[0]) {
+            const p = path.join('public/pictures', req.files.profile_Picture[0].filename);
+            if (fs.existsSync(p)) fs.unlinkSync(p);
+        }
+        if (req.files?.degreeFile?.[0]) {
+            const p = path.join('public/degrees', req.files.degreeFile[0].filename);
+            if (fs.existsSync(p)) fs.unlinkSync(p);
+        }
         console.error("Registration Error:", error);
         res.status(500).json({ error: error.message });
     }
@@ -125,7 +132,23 @@ const D_LogIn = async (req, res) => {
     if (!user) return res.status(404).json({ status: 0, msg: "Invalid password or email" });
 
     const isMatch = await user.Password_Check(password);
-    if(!isMatch) return res.status(401).json({ status: 0, msg: "Invalid email or password" });
+    if (!isMatch) return res.status(401).json({ status: 0, msg: "Invalid email or password" });
+
+    // Approval gate
+    if (user.isApproved === null) {
+        return res.status(403).json({
+            status: 0,
+            approval_status: 'pending',
+            msg: 'Your registration is under review. Kindly wait for admin approval.'
+        });
+    }
+    if (user.isApproved === false) {
+        return res.status(403).json({
+            status: 0,
+            approval_status: 'rejected',
+            msg: 'Your registration request has been denied by the administrator.'
+        });
+    }
 
     const token = await user.Generate_Token();
     
@@ -153,8 +176,8 @@ const D_LogIn = async (req, res) => {
 
 const View_Doctor = async (req, res) => {
     try {
-        const doctors = await D_Model.find().select("first_Name last_Name speciality degrees profile_Picture _id");
-        if (!doctors || doctors.length === 0) return res.status(404).json({ success: false, message: "No doctors found." });
+        // Include legacy doctors (no isApproved field) + explicitly approved ones; exclude pending (null) and rejected (false)
+        const doctors = await D_Model.find({ isApproved: { $nin: [false, null] } }).select("first_Name last_Name speciality degrees profile_Picture _id");
         res.status(200).json({ success: true, count: doctors.length, data: doctors });
     } catch (error) {
         res.status(500).json({ success: false, message: "Error fetching doctors", error: error.message });
@@ -240,13 +263,14 @@ const Update_Profile = async (req, res) => {
 
         if (password) doctor.password = password; // pre-save hook hashes it
 
-        // New profile picture uploaded
-        if (req.file) {
+        // New profile picture uploaded (licenseNumber and degreeFile are locked — ignored)
+        const newPic = req.files?.profile_Picture?.[0]?.filename || req.file?.filename;
+        if (newPic) {
             if (doctor.profile_Picture && doctor.profile_Picture !== 'default-doctor.png') {
                 const old = path.join(__dirname, '../public/pictures', doctor.profile_Picture);
                 if (fs.existsSync(old)) fs.unlinkSync(old);
             }
-            doctor.profile_Picture = req.file.filename;
+            doctor.profile_Picture = newPic;
         }
 
         await doctor.save();
@@ -254,7 +278,11 @@ const Update_Profile = async (req, res) => {
         delete updated.password;
         res.json({ success: true, message: 'Profile updated successfully.', data: updated });
     } catch (err) {
-        if (req.file) fs.unlinkSync(path.join('public/pictures', req.file.filename));
+        const newPic = req.files?.profile_Picture?.[0]?.filename || req.file?.filename;
+        if (newPic) {
+            const p = path.join('public/pictures', newPic);
+            if (fs.existsSync(p)) fs.unlinkSync(p);
+        }
         res.status(500).json({ success: false, message: err.message });
     }
 };

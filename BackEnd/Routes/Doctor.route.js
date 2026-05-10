@@ -12,12 +12,15 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 })
 
-D_Router.post('/D_SignUP', authLimiter, upload.single('profile_Picture'), D_SignUp)
+D_Router.post('/D_SignUP', authLimiter, upload.fields([
+  { name: 'profile_Picture', maxCount: 1 },
+  { name: 'degreeFile',      maxCount: 1 },
+]), D_SignUp)
 D_Router.post('/D_Login', authLimiter, D_LogIn)
 D_Router.get('/View_Doctor',View_Doctor)
 D_Router.get('/Doctor_Logout', logoutDoctor)
 D_Router.get('/doctor/verify',         Doctor_Check, Verify_Doctor)
 D_Router.get('/doctor/profile',        Doctor_Check, Get_Profile)
-D_Router.put('/doctor/profile/update', Doctor_Check, upload.single('profile_Picture'), Update_Profile)
+D_Router.put('/doctor/profile/update', Doctor_Check, upload.fields([{ name: 'profile_Picture', maxCount: 1 }]), Update_Profile)
 
 module.exports=D_Router

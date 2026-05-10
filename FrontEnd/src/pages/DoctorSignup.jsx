@@ -14,13 +14,16 @@ const DoctorSignup = ({ setRole }) => {
     password: '',
     speciality: '',
     experience: '',
+    licenseNumber: '',
   });
 
   const [degrees, setDegrees] = useState([]);
   const [degreeInput, setDegreeInput] = useState('');
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [degreeFile, setDegreeFile] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [showPassword, setShowPassword] = useState(false);
 
@@ -34,6 +37,11 @@ const DoctorSignup = ({ setRole }) => {
       setFile(selectedFile);
       setPreview(URL.createObjectURL(selectedFile));
     }
+  };
+
+  const handleDegreeFileChange = (e) => {
+    const f = e.target.files[0];
+    if (f) setDegreeFile(f);
   };
 
   const addDegree = () => {
@@ -65,12 +73,18 @@ const DoctorSignup = ({ setRole }) => {
       setLoading(false);
       return;
     }
+    if (!degreeFile) {
+      setMessage({ type: 'error', text: 'Please upload your degree / licence document.' });
+      setLoading(false);
+      return;
+    }
 
     try {
       const data = new FormData();
       Object.keys(formData).forEach((key) => data.append(key, formData[key]));
       data.append('degrees', JSON.stringify(degrees));
       if (file) data.append('profile_Picture', file);
+      data.append('degreeFile', degreeFile);
 
       const response = await axios.post(API_URL, data, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -78,16 +92,7 @@ const DoctorSignup = ({ setRole }) => {
       });
 
       if (response.data.success) {
-        setMessage({ type: 'success', text: 'Registration Successful! Entering Dashboard...' });
-
-        if (response.data.login) {
-          setRole('doctor');
-          localStorage.setItem('doctorName', formData.first_Name);
-          localStorage.setItem('doctorSpeciality', formData.speciality);
-          setTimeout(() => navigate('/doctor-dashboard'), 1500);
-        } else {
-          setTimeout(() => navigate('/login'), 2000);
-        }
+        setSubmitted(true);
       }
     } catch (error) {
       console.error('Signup Error:', error);
@@ -101,6 +106,37 @@ const DoctorSignup = ({ setRole }) => {
   const inputCls =
     'w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#00B4A0] focus:border-[#00B4A0] text-slate-700 outline-none transition bg-slate-50 focus:bg-white';
   const labelCls = 'block text-sm font-bold text-[#0A2540] mb-1.5';
+
+  // ── Success screen ────────────────────────────────────────────────────────
+  if (submitted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F4F7F9] p-6">
+        <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-10 max-w-md w-full text-center fade-up">
+          <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}.fade-up{animation:fadeUp 0.55s ease both}`}</style>
+          <div className="w-20 h-20 rounded-full bg-[#00B4A0]/10 flex items-center justify-center mx-auto mb-6">
+            <svg className="w-10 h-10 text-[#00B4A0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-extrabold text-[#0A2540] mb-3">Request Forwarded!</h2>
+          <p className="text-slate-500 text-sm leading-relaxed mb-6">
+            Your registration request has been submitted for admin review. Our team will verify your licence and degree documents. You will be notified via the login page once your account is approved.
+          </p>
+          <div className="bg-amber-50 border border-amber-100 rounded-2xl px-5 py-4 mb-7 text-left flex gap-3">
+            <svg className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-amber-700 text-xs font-medium leading-relaxed">
+              Please do <span className="font-bold">not</span> register again with the same email. Your request is under process — kindly wait for approval.
+            </p>
+          </div>
+          <a href="/login" className="inline-block w-full py-3 rounded-xl bg-[#0A2540] text-white font-bold text-sm hover:bg-slate-800 transition">
+            Go to Login
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex font-sans">
@@ -395,6 +431,63 @@ const DoctorSignup = ({ setRole }) => {
                     </svg>
                   </div>
                 </div>
+              </div>
+
+              {/* License Number */}
+              <div>
+                <label className={labelCls}>Medical Licence Number <span className="text-red-400">*</span></label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                    </svg>
+                  </span>
+                  <input
+                    required
+                    type="text"
+                    name="licenseNumber"
+                    value={formData.licenseNumber}
+                    onChange={handleChange}
+                    placeholder="e.g. PMDC-12345"
+                    className={inputCls}
+                  />
+                </div>
+                <p className="text-xs text-slate-400 mt-1">The admin will verify this against official licensing records.</p>
+              </div>
+
+              {/* Degree / Certificate Upload */}
+              <div>
+                <label className={labelCls}>Degree / Licence Document <span className="text-red-400">*</span></label>
+                <label className={`flex items-center gap-4 px-4 py-4 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${
+                  degreeFile ? 'border-[#00B4A0] bg-[#00B4A0]/5' : 'border-slate-200 bg-slate-50 hover:border-[#00B4A0]/50'
+                }`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                    degreeFile ? 'bg-[#00B4A0]/15 text-[#00B4A0]' : 'bg-slate-100 text-slate-400'
+                  }`}>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {degreeFile ? (
+                      <>
+                        <p className="text-sm font-bold text-[#00B4A0] truncate">{degreeFile.name}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{(degreeFile.size / 1024).toFixed(1)} KB · Click to change</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm font-semibold text-slate-600">Upload your degree or licence</p>
+                        <p className="text-xs text-slate-400 mt-0.5">PDF, JPG or PNG — max 10 MB</p>
+                      </>
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={handleDegreeFileChange}
+                    className="hidden"
+                  />
+                </label>
               </div>
 
               {/* Degrees Tag Input */}

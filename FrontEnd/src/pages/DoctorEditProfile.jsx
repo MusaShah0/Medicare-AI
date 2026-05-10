@@ -236,6 +236,52 @@ export default function DoctorEditProfile() {
               <p className="text-xs text-slate-400 mt-2">Email address cannot be changed for security reasons.</p>
             </div>
 
+            {/* ── Licence & Degree (read-only) ── */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+              <div className="flex items-center justify-between mb-5">
+                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#00B4A0' }}>Licence & Degree</p>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: '#F0FDF4', color: '#15803D' }}>Locked</span>
+              </div>
+              <p className="text-xs text-slate-400 mb-4">These credentials were submitted at registration and cannot be changed. Contact support if there is an error.</p>
+
+              {/* Licence Number */}
+              <div className="mb-4">
+                <label className="block text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#0A2540' }}>Medical Licence Number</label>
+                <div className="flex items-center gap-3 px-4 py-3 rounded-xl border" style={{ borderColor: '#E2E8F0', background: '#F8FAFC' }}>
+                  <svg className="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                  </svg>
+                  <span className="text-sm text-slate-600 flex-1">{profile.licenseNumber || '—'}</span>
+                </div>
+              </div>
+
+              {/* Degree File */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#0A2540' }}>Degree / Licence Document</label>
+                {profile.degreeFile ? (
+                  <a
+                    href={`${API}/degrees/${profile.degreeFile}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors hover:border-teal-300"
+                    style={{ borderColor: '#E2E8F0', background: '#F8FAFC' }}
+                  >
+                    <svg className="w-5 h-5 flex-shrink-0" style={{ color: '#00B4A0' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span className="text-sm text-slate-600 flex-1 truncate">{profile.degreeFile}</span>
+                    <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                ) : (
+                  <div className="flex items-center gap-3 px-4 py-3 rounded-xl border" style={{ borderColor: '#E2E8F0', background: '#F8FAFC' }}>
+                    <span className="text-sm text-slate-400">No document uploaded</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* ── Personal Info ── */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
               <p className="text-xs font-bold uppercase tracking-widest mb-5" style={{ color: '#00B4A0' }}>Personal Information</p>

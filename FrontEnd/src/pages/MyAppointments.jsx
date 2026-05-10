@@ -207,10 +207,20 @@ const getStatusDot = (status) => {
   }
 };
 
+// ── Status filter config ──────────────────────────────────────────────────────
+const STATUS_FILTERS = [
+  { key: 'all',       label: 'All' },
+  { key: 'booked',    label: 'Upcoming' },
+  { key: 'ongoing',   label: 'Ongoing' },
+  { key: 'completed', label: 'Completed' },
+  { key: 'cancelled', label: 'Cancelled' },
+];
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 const MyAppointments = () => {
   const navigate = useNavigate();
   const [appointments, setAppointments]   = useState([]);
+  const [statusFilter, setStatusFilter]   = useState('all');
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState(null);
   const [now, setNow]                     = useState(new Date());
@@ -538,7 +548,42 @@ const MyAppointments = () => {
       {/* ── MAIN CONTENT ── */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
-        {appointments.length === 0 ? (
+        {/* ── STATUS FILTER BAR ── */}
+        {appointments.length > 0 && (
+          <div className="flex items-center gap-2 mb-7 flex-wrap">
+            {STATUS_FILTERS.map(({ key, label }) => {
+              const count = key === 'all'
+                ? appointments.length
+                : appointments.filter(a => a.status === key).length;
+              const active = statusFilter === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setStatusFilter(key)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold border transition-all duration-200 ${
+                    active
+                      ? 'bg-[#0A2540] text-white border-[#0A2540] shadow-sm'
+                      : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700'
+                  }`}
+                >
+                  {label}
+                  <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${
+                    active ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {(() => {
+          const filtered = statusFilter === 'all'
+            ? appointments
+            : appointments.filter(a => a.status === statusFilter);
+
+          return appointments.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-2xl border border-slate-100 shadow-sm">
             <div className="w-16 h-16 bg-[#00B4A0]/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-[#00B4A0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -551,9 +596,19 @@ const MyAppointments = () => {
               Find a Doctor
             </Link>
           </div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-20 bg-white rounded-2xl border border-slate-100 shadow-sm">
+            <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <svg className="w-7 h-7 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-[#0A2540]">No {STATUS_FILTERS.find(f => f.key === statusFilter)?.label} Appointments</h3>
+            <p className="text-slate-400 text-sm mt-2">Try selecting a different filter.</p>
+          </div>
         ) : (
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {appointments.map((app) => {
+            {filtered.map((app) => {
               const doctor         = app.doctor_id;
               const slot           = app.sechdule_Id;
               const alreadyReviewed = reviewedIds.has(app._id);
@@ -730,7 +785,8 @@ const MyAppointments = () => {
               );
             })}
           </div>
-        )}
+        );
+        })()}
       </main>
 
       {/* ── REVIEW MODAL ── */}

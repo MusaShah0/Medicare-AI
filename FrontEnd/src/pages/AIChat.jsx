@@ -225,7 +225,7 @@ const AIChat = () => {
                       <ul className="space-y-1">
                         {msg.sources.map((source, i) => (
                           <li key={i} className="text-xs text-[#00B4A0] truncate max-w-xs">
-                            • {source}
+                            • {source.split(/[\\/]/).pop()}
                           </li>
                         ))}
                       </ul>

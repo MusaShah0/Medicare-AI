@@ -48,8 +48,12 @@ The MediCare AI system boundary encompasses all three integrated services (Front
 - Medical record retrieval and consultation note access
 - Appointment list management organizing consultations by status
 
+Within system boundary (continued):
+- Digital prescription creation by doctors for completed consultations
+- Patient access to prescriptions issued by their doctors
+- In-app notification delivery for prescription issuance and appointment events
+
 Outside system boundary (not in primary use case model):
-- Doctor profile and credential management
 - System administrator functions and monitoring
 - Insurance and payment processing
 - Advanced analytics and clinical decision support
@@ -171,6 +175,22 @@ The following UML use case diagram represents the patient-centric use case model
 │  │                                                            │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │                                                                  │
+│  DOCTOR-INITIATED USE CASES:                                    │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │  ┌────────┐    ┌─────────────────────────────────────┐  │   │
+│  │  │        │    │  UC-11: Write Prescription          │  │   │
+│  │  │        │    │  Precondition: appt = completed      │  │   │
+│  │  │ Doctor ├───►│  <<extend>> UC-11a:                  │  │   │
+│  │  │        │    │  View Patient Appointment History    │  │   │
+│  │  │        │    └──────────────┬──────────────────────┘  │   │
+│  │  │        │                   │ triggers notification    │   │
+│  │  │        │                   ▼                         │   │
+│  │  │        │    ┌─────────────────────────────────────┐  │   │
+│  │  │        │    │  UC-12: View Prescription (Patient) │  │   │
+│  │  └────────┘    │  Precondition: prescription exists  │  │   │
+│  │                └─────────────────────────────────────┘  │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                  │
 │  External Systems (Transparent to Patient):                     │
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │  VideoSDK.live    │  Groq LLaMA 3.1  │  MongoDB            │ │
@@ -219,6 +239,9 @@ LEGEND:
 | UC-8 | Manage Appointments | Patient | Primary | Medium | HIGH |
 | UC-9 | Prevent Appointment Conflicts | System | Supporting | High | HIGH |
 | UC-10 | Generate AI Responses | System | Supporting | High | HIGH |
+| UC-11 | Write Prescription | Doctor | Primary | Medium | HIGH |
+| UC-11a | View Patient Appointment History | Doctor | Secondary | Low | MEDIUM |
+| UC-12 | View Prescription | Patient | Primary | Low | HIGH |
 
 ### 3.1.5 Use Case Relationships and Dependencies
 
@@ -245,8 +268,14 @@ Extension relationships represent optional or conditional use cases that extend 
 - **UC-7 →→ UC-7a**: Sharing notes optional; depends on patient need
 - **UC-7 →→ UC-7b**: Follow-up booking optional; depends on consultation outcome
 
+**Prescription Relationships:**
+- **UC-11 → UC-4**: Doctor can only write prescription for an appointment they conducted (completed status)
+- **UC-11 →→ UC-11a**: Doctor may optionally view the patient's full appointment history before writing prescription
+- **UC-11 → UC-12**: Prescription creation triggers patient notification and enables UC-12
+- **UC-12 → UC-5**: Patient can view prescription only after consultation (UC-5) is complete
+
 **Primary Patient Journey (Sequence):**
-Typical patient workflow follows: UC-1 (initial) → UC-2/UC-3 (exploration) → UC-4 (booking) → UC-5 (consultation) → UC-7 (review) → UC-8 (management)
+Typical patient workflow follows: UC-1 (initial) → UC-2/UC-3 (exploration) → UC-4 (booking) → UC-5 (consultation) → UC-7 (notes review) → UC-12 (prescription view) → UC-8 (management)
 
 However, workflows are flexible: existing patients skip UC-1, can explore symptom checker without booking, can cancel appointments, may not need medical records.
 
@@ -657,11 +686,88 @@ Response strictly grounded in retrieved medical knowledge, preventing hallucinat
 
 ---
 
+### 3.2.11 UC-11: Write Prescription
+
+**[Font: Times New Roman, Size 11, Bold, Italicize]**
+
+**Use Case ID:** UC-11
+**Use Case Name:** Write Prescription
+**Primary Actor:** Healthcare Professional (Doctor)
+**Secondary Actors:** System (prescription storage, notification dispatch), Database (Prescription and Notification collections)
+**Preconditions:** Doctor is authenticated and logged in, selected appointment has status = 'completed', doctor is the assigned doctor for that appointment, no prescription yet issued for this appointment
+**Postconditions:** Prescription document created in MongoDB with all clinical details, patient notified via in-app notification, prescription visible to both doctor and patient
+**Trigger Event:** Doctor clicks "Write Prescription" on a completed appointment card in the doctor portal
+
+**Description:**
+Doctor navigates to their appointments list where completed appointments are visible under the "Completed" tab. For each completed appointment, the system shows a "Write Prescription" button (if no prescription exists) or a "View Prescription" button (if a prescription has already been issued). Doctor clicks "Write Prescription". System validates that the appointment is completed and that no prescription has already been created for this appointment. System displays a structured prescription form pre-filled with: doctor name, patient name (read-only), appointment date (read-only). Doctor completes the form with: (1) **Diagnosis** — free-text description of the clinical diagnosis, (2) **Medicines** — one or more medicine entries, each including: medicine name, dosage (e.g., "500mg"), frequency (e.g., "Twice daily"), duration (e.g., "7 days"), special instructions (e.g., "Take after meals"), (3) **Vital Signs** — blood pressure (e.g., "120/80"), temperature (e.g., "37.2°C"), pulse (e.g., "72 bpm"), weight (e.g., "65 kg"), (4) **Advice** — lifestyle or dietary recommendations, (5) **Follow-up Date** — optional date for next consultation.
+
+Doctor clicks "Submit Prescription". System validates that at least one medicine entry has a name and dosage. Backend creates Prescription document in MongoDB with the above fields, unique constraint on appointment_id preventing duplicates. Backend creates Notification document for patient with: type = 'prescription_issued', title = 'Prescription Ready', message = 'Dr. [LastName] has issued your prescription.' Prescription persisted as an immutable clinical record. System returns 201 Created. Doctor interface updates: "Write Prescription" button replaced by "View Prescription" button on that appointment card. Doctor sees success message: "Prescription issued successfully."
+
+**Extension: UC-11a — View Patient Appointment History**
+Before writing the prescription, the doctor may optionally review the patient's prior consultation history. Doctor clicks "View Patient History" link on the appointment detail. System retrieves all past completed appointments between this doctor and patient, including their associated meeting notes and previously issued prescriptions. This allows the doctor to ensure clinical continuity (e.g., checking previous diagnoses or medications) before authoring the new prescription. History is displayed in read-only format.
+
+**Alternative Flows:**
+- **Prescription already exists:** System shows "Prescription already issued for this appointment" and redirects to View Prescription (UC-11 → read-only view)
+- **Appointment not completed:** Button hidden; if attempted via direct URL, backend returns 400 Bad Request: "Prescription can only be issued for completed appointments"
+- **Doctor not assigned to this appointment:** Backend returns 403 Forbidden
+- **Form submitted with no medicines:** Frontend validation blocks submission: "Please add at least one medicine with name and dosage"
+
+**Key Features:**
+- Structured form enforcing clinical completeness (diagnosis + medicines required)
+- Dynamic medicines table (add/remove rows for multiple medicines)
+- Vital signs capture during post-consultation prescription
+- One-prescription-per-appointment idempotency at database level
+- Automatic patient notification on prescription issuance
+- Immutable record — prescriptions cannot be deleted after issuance
+
+**Related Use Cases:**
+- Requires UC-4/UC-5 to have been completed (appointment completed)
+- Optionally extends to UC-11a (view patient history for clinical context)
+- Triggers patient notification enabling UC-12 (patient views prescription)
+
+---
+
+### 3.2.12 UC-12: View Prescription
+
+**[Font: Times New Roman, Size 11, Bold, Italicize]**
+
+**Use Case ID:** UC-12
+**Use Case Name:** View Prescription
+**Primary Actor:** Patient
+**Secondary Actors:** System (prescription retrieval, authorization check), Database (Prescription collection)
+**Preconditions:** Patient is authenticated, appointment is completed and has status = 'completed', a prescription has been issued by the doctor for this appointment
+**Postconditions:** Patient has reviewed the prescription details including diagnosis, medicines list, vital signs, advice, and follow-up date
+**Trigger Event:** Patient clicks "View Prescription" on a completed appointment card, or taps the prescription notification in the notification panel
+
+**Description:**
+Patient navigates to their appointments list and sees completed appointments with a "View Prescription" button on any appointment for which a prescription has been issued. Patient may also receive an in-app notification ("Your prescription is ready") and can click directly from the notification panel. Patient clicks "View Prescription". Frontend calls backend GET /prescriptions/my/:appointmentId. Backend validates: patient is authenticated, patient_id on the prescription matches the requesting patient. If unauthorized, returns 403 Forbidden. On success, system retrieves and returns the prescription document.
+
+System displays the prescription in a formatted, print-friendly layout structured as follows: **Header** (doctor name, patient name, consultation date), **Diagnosis** (displayed in a highlighted box), **Medicines** (formatted table: Medicine Name | Dosage | Frequency | Duration | Instructions, one row per medicine), **Vital Signs** (compact table: Blood Pressure | Temperature | Pulse | Weight), **Advice** (text section), **Follow-up Date** (if specified, displayed with a calendar icon). Patient reads all prescription details. Patient can print the prescription using browser print function or use the "Download" option if implemented. Prescription is read-only; patient cannot modify any content.
+
+**Alternative Flows:**
+- **No prescription yet:** Button not shown on appointment card. If accessed directly, system displays "Prescription not yet available for this appointment. Your doctor may issue one after reviewing your consultation."
+- **Notification click:** Patient taps prescription notification from notification panel, system navigates directly to the prescription view for the relevant appointment
+- **Patient not owner:** Backend returns 403 Forbidden; patient cannot view another patient's prescription
+
+**Key Features:**
+- Secured endpoint — patient can only access their own prescriptions
+- Prescription accessible via appointment card or notification panel
+- Clean, print-friendly prescription layout matching clinical document standards
+- Read-only display preventing unauthorized modification
+- All prescription details visible in one view (no pagination)
+
+**Related Use Cases:**
+- Enabled by UC-11 (doctor must issue prescription first)
+- Accessible from UC-8 (appointment management — "View Prescription" button)
+- Triggered by system notification generated during UC-11
+
+---
+
 ## Summary
 
 **[Font: Times New Roman, Size 12, 1.5 Line Spacing, Justified]**
 
-This chapter has presented comprehensive system analysis of the MediCare AI platform through patient-centric use case modeling. Eight primary use cases document the complete patient lifecycle from registration (UC-1) through symptom assessment (UC-2), doctor discovery (UC-3), appointment booking (UC-4), video consultation (UC-5), profile management (UC-6), medical record access (UC-7), and appointment management (UC-8). Secondary use cases extend primary workflows with optional functionality: viewing doctor details (UC-3a), canceling appointments (UC-4a), handling network issues (UC-5a), sharing medical records (UC-7a), and scheduling follow-ups (UC-7b). Two supporting system use cases ensure system reliability: conflict prevention (UC-9) prevents double-booking through business logic and database constraints, and AI response generation (UC-10) implements RAG pipeline providing evidence-based guidance. The UML use case diagram provides visual reference showing actors, system boundary, inclusion/extension relationships, supporting use cases, and external systems. Use case descriptions specify preconditions, postconditions, trigger events, alternative flows, and detailed behavioral flows connecting patient actions with system operations. The patient-centric perspective prioritizes user experience and patient goals, ensuring system design reflects how patients actually interact with healthcare services. The use case analysis bridges requirements specification (Chapter 2) and system architecture (Chapter 4), providing detailed behavioral blueprints for implementation, testing, and validation.
+This chapter has presented comprehensive system analysis of the MediCare AI platform through patient-centric use case modeling. Eight primary use cases document the complete patient lifecycle from registration (UC-1) through symptom assessment (UC-2), doctor discovery (UC-3), appointment booking (UC-4), video consultation (UC-5), profile management (UC-6), medical record access (UC-7), and appointment management (UC-8). Secondary use cases extend primary workflows with optional functionality: viewing doctor details (UC-3a), canceling appointments (UC-4a), handling network issues (UC-5a), sharing medical records (UC-7a), and scheduling follow-ups (UC-7b). Two supporting system use cases ensure system reliability: conflict prevention (UC-9) prevents double-booking through business logic and database constraints, and AI response generation (UC-10) implements RAG pipeline providing evidence-based guidance. Two prescription-management use cases complete the post-consultation workflow: UC-11 (Write Prescription) enables doctors to issue structured digital prescriptions covering diagnosis, medicines, vital signs, and follow-up instructions immediately after a completed appointment, with idempotency enforced at the database level and an in-platform notification dispatched to the patient; UC-11a (View Patient Appointment History) extends UC-11 by allowing the doctor to review a patient's prior appointments and prescriptions before writing a new one. UC-12 (View Prescription) captures the patient-side interaction, covering access from the appointment card or notification, authorization enforcement ensuring only the intended patient can view the prescription, and a print-friendly formatted display. The UML use case diagram provides visual reference showing actors, system boundary, inclusion/extension relationships, supporting use cases, and external systems. Use case descriptions specify preconditions, postconditions, trigger events, alternative flows, and detailed behavioral flows connecting patient and doctor actions with system operations. The patient-centric perspective prioritizes user experience and patient goals, ensuring system design reflects how patients actually interact with healthcare services. The use case analysis bridges requirements specification (Chapter 2) and system architecture (Chapter 4), providing detailed behavioral blueprints for implementation, testing, and validation.
 
 ---
 

@@ -249,7 +249,7 @@ const removeAppointment = async (req, res) => {
 const getSchedules = async (req, res) => {
   try {
     const schedules = await Schedule.find()
-      .populate('doctor_id', 'first_Name last_Name speciality')
+      .populate('doctor', 'first_Name last_Name speciality')
       .sort({ date: -1, startTime: 1 });
     res.json({ success: true, data: schedules });
   } catch (err) {
@@ -338,6 +338,46 @@ const removeReview = async (req, res) => {
   }
 };
 
+// ── Doctor Approval ───────────────────────────────────────────────────────────
+const getPendingDoctors = async (req, res) => {
+  try {
+    const doctors = await Doctor.find({ isApproved: null })
+      .select('-password')
+      .sort({ createdAt: -1 });
+    res.json({ success: true, data: doctors });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+const approveDoctor = async (req, res) => {
+  try {
+    const doctor = await Doctor.findByIdAndUpdate(
+      req.params.id,
+      { isApproved: true },
+      { new: true }
+    ).select('-password');
+    if (!doctor) return res.status(404).json({ success: false, message: 'Doctor not found.' });
+    res.json({ success: true, message: `Dr. ${doctor.first_Name} ${doctor.last_Name} approved.`, data: doctor });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+const rejectDoctor = async (req, res) => {
+  try {
+    const doctor = await Doctor.findByIdAndUpdate(
+      req.params.id,
+      { isApproved: false },
+      { new: true }
+    ).select('-password');
+    if (!doctor) return res.status(404).json({ success: false, message: 'Doctor not found.' });
+    res.json({ success: true, message: `Dr. ${doctor.first_Name} ${doctor.last_Name} rejected.`, data: doctor });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 module.exports = {
   adminLogin, adminLogout, adminVerify,
   getStats,
@@ -347,4 +387,5 @@ module.exports = {
   getSchedules,  removeSchedule,
   getMeetingNotes, removeMeetingNote,
   getReviews,    removeReview,
+  getPendingDoctors, approveDoctor, rejectDoctor,
 };

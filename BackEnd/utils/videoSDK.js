@@ -8,6 +8,16 @@ const SECRET_KEY = process.env.VIDEOSDK_SECRET_KEY;
  * permissions: allow_join + allow_mod
  */
 const generateToken = () => {
+  // Debug logging
+  console.log('[VideoSDK] API_KEY:', API_KEY ? `${API_KEY.substring(0, 10)}...` : 'UNDEFINED');
+  console.log('[VideoSDK] SECRET_KEY:', SECRET_KEY ? `${SECRET_KEY.substring(0, 10)}...` : 'UNDEFINED');
+  console.log('[VideoSDK] SECRET_KEY type:', typeof SECRET_KEY);
+  console.log('[VideoSDK] SECRET_KEY length:', SECRET_KEY ? SECRET_KEY.length : 0);
+  
+  if (!SECRET_KEY) {
+    throw new Error('VIDEOSDK_SECRET_KEY is not defined in environment variables');
+  }
+  
   const payload = {
     apikey: API_KEY,
     permissions: ["allow_join", "allow_mod"],

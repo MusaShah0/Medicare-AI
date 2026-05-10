@@ -11,6 +11,7 @@ const DoctorLogin = ({ setRole }) => {
   });
 
   const [loading, setLoading] = useState(false);
+  // type: 'error' | 'success' | 'pending' | 'rejected'
   const [message, setMessage] = useState({ type: '', text: '' });
   const [showPassword, setShowPassword] = useState(false);
 
@@ -41,18 +42,25 @@ const DoctorLogin = ({ setRole }) => {
 
         setRole('doctor');
 
-        setMessage({ type: 'success', text: response.data.msg || 'Login Successful!' });
-
-        setTimeout(() => {
-          navigate('/doctor-dashboard');
-        }, 1500);
+        navigate('/doctor-dashboard');
       } else {
         setMessage({ type: 'error', text: response.data.msg || 'Login failed' });
       }
     } catch (error) {
       console.error('Login Error:', error);
-      const errorMsg = error.response?.data?.msg || 'Server connection failed';
-      setMessage({ type: 'error', text: errorMsg });
+      const data = error.response?.data;
+      const approvalStatus = data?.approval_status;
+      if (approvalStatus === 'pending') {
+        setMessage({ type: 'pending', text: data.msg });
+      } else if (approvalStatus === 'rejected') {
+        setMessage({ type: 'rejected', text: data.msg });
+      } else if (data?.msg) {
+        setMessage({ type: 'error', text: data.msg });
+      } else if (error.request) {
+        setMessage({ type: 'error', text: 'Cannot reach server. Please check your connection.' });
+      } else {
+        setMessage({ type: 'error', text: 'Login failed. Please try again.' });
+      }
     } finally {
       setLoading(false);
     }
@@ -161,22 +169,32 @@ const DoctorLogin = ({ setRole }) => {
             {/* Alert */}
             {message.text && (
               <div
-                className={`mb-6 flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold border ${
-                  message.type === 'error'
-                    ? 'bg-red-50 text-red-600 border-red-100'
-                    : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                className={`mb-6 flex items-start gap-3 px-4 py-3 rounded-xl text-sm font-semibold border ${
+                  message.type === 'error'    ? 'bg-red-50 text-red-600 border-red-100' :
+                  message.type === 'pending'  ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                  message.type === 'rejected' ? 'bg-red-50 text-red-700 border-red-200' :
+                  'bg-emerald-50 text-emerald-600 border-emerald-100'
                 }`}
               >
-                {message.type === 'error' ? (
-                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                {message.type === 'pending' ? (
+                  <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                ) : (
-                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                ) : message.type === 'success' ? (
+                  <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
+                ) : (
+                  <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 )}
-                {message.text}
+                <div>
+                  {message.text}
+                  {message.type === 'pending' && (
+                    <p className="text-xs font-normal mt-1 text-amber-600">Kindly wait — you will be notified once the admin reviews your request.</p>
+                  )}
+                </div>
               </div>
             )}
 

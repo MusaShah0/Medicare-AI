@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
 // Chalk : #F4F7F9   — background / space
 
 const ASSETS = {
-  logo : '/content/l1.png',
+  logo : '/content/logo_transparent.png',
   d1   : '/content/d1.jpg',
   d2   : '/content/d2.jpg',
   d3   : '/content/d3.jpg',
@@ -377,7 +377,13 @@ const Home = () => {
       }`}>
         <div className="max-w-7xl mx-auto px-5 sm:px-8 flex items-center justify-between h-[72px]">
 
-          <Link to="/" className="flex items-center gap-2.5 group">
+          <Link to="/" className="flex items-center gap-1.5 group">
+            <img
+              src={ASSETS.logo}
+              alt="MediCare AI logo"
+              className="h-9 w-auto object-contain flex-shrink-0 transition-all duration-300"
+              style={{ filter: scrolled ? 'drop-shadow(0 1px 4px rgba(0,0,0,0.20))' : 'drop-shadow(0 1px 6px rgba(0,180,160,0.4))' }}
+            />
             <span className={`text-[22px] font-extrabold tracking-tight transition-colors ${scrolled ? 'text-[#0A2540]' : 'text-white'}`}>
               Medicare<span className="text-[#00B4A0]">AI</span>
             </span>
