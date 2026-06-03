@@ -404,7 +404,7 @@ const Home = () => {
           </Link>
 
           <div className="hidden md:flex items-center gap-8">
-            {[['#services','Services'],['#how-it-works','How It Works'],['#for-doctors','For Doctors']].map(([href, label]) => (
+            {[['#services','Services'],['#how-it-works','How It Works']].map(([href, label]) => (
               <a key={href} href={href}
                 className={`text-sm font-semibold transition hover:text-[#00B4A0] ${scrolled ? 'text-slate-600' : 'text-white/90'}`}>
                 {label}
@@ -430,7 +430,6 @@ const Home = () => {
           <div className="md:hidden bg-white border-t border-slate-100 px-6 py-5 flex flex-col gap-4 shadow-xl">
             <a href="#services"     onClick={() => setMobileOpen(false)} className="text-base font-semibold text-slate-700">Services</a>
             <a href="#how-it-works" onClick={() => setMobileOpen(false)} className="text-base font-semibold text-slate-700">How It Works</a>
-            <a href="#for-doctors"  onClick={() => setMobileOpen(false)} className="text-base font-semibold text-slate-700">For Doctors</a>
             <hr className="border-slate-100" />
             <Link to="/login"          className="text-base font-bold text-[#00B4A0]">Login</Link>
             <Link to="/patient/signup" className="block text-center bg-[#0A2540] text-white py-3 rounded-xl font-bold text-sm">Get Started Free</Link>
@@ -886,7 +885,6 @@ const Home = () => {
               <ul className="space-y-2.5 text-sm text-white/45">
                 <li><a href="#how-it-works" className="hover:text-[#00B4A0] transition">How It Works</a></li>
                 <li><a href="#services"     className="hover:text-[#00B4A0] transition">Services</a></li>
-                <li><a href="#for-doctors"  className="hover:text-[#00B4A0] transition">For Doctors</a></li>
                 <li><a href="#"             className="hover:text-[#00B4A0] transition">Privacy Policy</a></li>
               </ul>
             </div>
