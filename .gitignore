@@ -43,6 +43,8 @@ Thumbs.db
 # Kiro/Claude AI files
 .kiro/
 .claude/
+.claude
+.kiro
 
 # Logs
 logs/
@@ -97,9 +99,25 @@ Desktop.ini
 *~
 
 # Research and documentation (if you don't want to track these)
-# Research Paper/
-# docs/
-# Content/
+Research Paper/
+docs/
+Content/
+context.md
+data2.txt
+project.md
+AGENTS.md
+CLAUDE.md
+IMPLEMENTATION_COMPLETE.md
+design.md
+videocall.md
+*.docx
+*.doc
 
 # Local configuration
 opencode.json
+
+# Stitch AI MCP
+stitch-ai-mcp/
+
+# Test files (if you want to exclude)
+tests/
