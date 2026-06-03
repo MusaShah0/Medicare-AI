@@ -30,8 +30,6 @@ FrontEnd/dist/
 *.egg-info/
 
 # IDE and Editor files
-.vscode/
-.idea/
 *.swp
 *.swo
 *~
@@ -43,8 +41,7 @@ Thumbs.db
 # Kiro/Claude AI files
 .kiro/
 .claude/
-.claude
-.kiro
+.vscode/
 
 # Logs
 logs/
@@ -98,7 +95,7 @@ Desktop.ini
 *.swp
 *~
 
-# Research and documentation (if you don't want to track these)
+# Research and documentation (not tracked in version control)
 Research Paper/
 docs/
 Content/
