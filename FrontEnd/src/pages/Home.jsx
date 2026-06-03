@@ -586,8 +586,11 @@ const Home = () => {
                 step: '02',
                 icon: (
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
-                    <path d="M9.5 2a2.5 2.5 0 00-2.45 2H6a3 3 0 00-3 3 3 3 0 001.5 2.6V11a3 3 0 003 3h.5v1.5a1.5 1.5 0 003 0V14h.5a3 3 0 003-3v-1.4A3 3 0 0016 7a3 3 0 00-3-3h-1.05A2.5 2.5 0 009.5 2z" />
-                    <path d="M6.5 9.5h1M16.5 9.5h1M9.5 12.5v1M14.5 12.5v1" strokeWidth="2" />
+                    <rect x="3" y="3" width="7" height="7" rx="1" />
+                    <rect x="14" y="3" width="7" height="7" rx="1" />
+                    <rect x="14" y="14" width="7" height="7" rx="1" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" />
+                    <path d="M10 6.5h4M10 17.5h4M6.5 10v4M17.5 10v4" />
                   </svg>
                 ),
                 title: 'AI Analysis',
@@ -598,10 +601,10 @@ const Home = () => {
                 step: '03',
                 icon: (
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
-                    <path d="M4.5 6.375a4.125 4.125 0 008.25 0" />
-                    <path d="M8.625 6.375V10.5a5.625 5.625 0 0011.25 0v-1.125" />
-                    <circle cx="19.875" cy="8.25" r="1.125" />
-                    <path d="M8.625 10.5a3.375 3.375 0 006.75 0" />
+                    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                    <circle cx="18" cy="18" r="3" fill="currentColor" stroke="none" />
+                    <path d="M16.5 18l1 1 2-2" stroke="white" strokeWidth="1.8" />
                   </svg>
                 ),
                 title: 'Book Specialist',
