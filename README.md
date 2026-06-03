@@ -1,590 +1,781 @@
-# MediCare AI
+# MediCare AI - Intelligent Telemedicine Platform
 
-A full-stack telemedicine platform where patients can check symptoms with an AI assistant, find doctors, book appointments, and attend video consultations. Doctors manage their schedules and appointments through a dedicated portal.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
+[![Python Version](https://img.shields.io/badge/python-%3E%3D3.9-blue)](https://www.python.org/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-7.0-green)](https://www.mongodb.com/)
 
----
+> A comprehensive full-stack telemedicine solution featuring AI-powered symptom analysis, real-time video consultations, and automated post-consultation documentation.
 
-## Architecture
+## 📋 Table of Contents
 
-```
-MediCare AI
-├── FrontEnd/   → React 19 + Vite + TailwindCSS        (port 5173)
-├── BackEnd/    → Node.js + Express 5 + MongoDB         (port 4000)
-└── AI/         → Python FastAPI + LangChain RAG        (port 8000)
-```
-
-The three services communicate as follows:
-
-- **FrontEnd → BackEnd:** All REST API calls go to `http://localhost:4000`
-- **BackEnd → AI:** When a patient sends a chat message, the backend proxies it to `http://127.0.0.1:8000/chat`
-- **BackEnd → VideoSDK:** When a patient books an appointment, the backend calls the VideoSDK REST API to create a video room
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React 19, React Router v7, Axios, TailwindCSS v4, Vite |
-| Backend | Node.js, Express 5, Mongoose 9, bcrypt, jsonwebtoken, multer, moment, cookie-parser, cors |
-| Database | MongoDB (local) — database name: `MediCare` |
-| AI Service | Python, FastAPI, LangChain 0.3, langchain-groq, langchain-huggingface, FAISS-cpu, sentence-transformers, PyPDF |
-| Video Calls | VideoSDK.live Prebuilt SDK (CDN) + VideoSDK REST API |
-| Auth | JWT stored in httpOnly cookies |
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Architecture](#architecture)
+- [Technology Stack](#technology-stack)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Running the Application](#running-the-application)
+- [API Documentation](#api-documentation)
+- [Database Schema](#database-schema)
+- [Testing](#testing)
+- [Deployment](#deployment)
+- [Security Considerations](#security-considerations)
+- [Contributing](#contributing)
+- [License](#license)
 
 ---
 
-## Project Structure
+## 🎯 Overview
 
-```
-/
-├── FrontEnd/
-│   └── src/
-│       ├── pages/          All page components
-│       ├── hooks/          useAuth.js — cookie-based auth verification
-│       └── App.jsx         Route definitions + protected route wrappers
-│
-├── BackEnd/
-│   ├── Models/             Mongoose schemas
-│   ├── Controlers/         Route handler functions
-│   ├── Routes/             Express routers
-│   ├── MiddleWare/         JWT auth middleware (Doctor, Patient, AnyUser)
-│   ├── utils/
-│   │   ├── autoCancel.js   Stale appointment/schedule cleanup + auto-complete timer
-│   │   └── videoSDK.js     VideoSDK token generation
-│   └── index.js            Express app entry point
-│
-└── AI/
-    ├── API/
-    │   ├── main.py         FastAPI app + /chat endpoint
-    │   ├── rag_engine.py   LangChain RAG chain setup
-    │   └── schemas.py      Pydantic request/response models
-    ├── data/               Medical PDF source documents
-    ├── vectorstore/        FAISS index (pre-built from PDFs)
-    ├── create_memory_for_llm.py   Builds the FAISS vector store
-    └── medibot.py          Standalone Streamlit chat UI (dev/testing)
-```
+MediCare AI is a modern telemedicine platform that bridges the gap between patients and healthcare providers through intelligent automation and seamless communication. The platform leverages cutting-edge AI technology for symptom analysis and provides a comprehensive suite of features for both patients and medical professionals.
+
+### Key Features
+
+#### For Patients
+- 🤖 **AI Symptom Checker**: RAG-powered medical assistant using LangChain and Groq LLaMA 3.1
+- 👨‍⚕️ **Doctor Discovery**: Browse and filter healthcare providers by speciality
+- 📅 **Smart Scheduling**: Book appointments with real-time availability checking
+- 🎥 **HD Video Consultations**: Secure, HIPAA-compliant video calls via VideoSDK
+- 📄 **AI-Generated Notes**: Automatic transcription and summarization of consultations
+- ⭐ **Review System**: Rate and review completed appointments
+- 🔄 **Free Rescheduling**: One-time free rebooking for doctor-initiated cancellations
+
+#### For Doctors
+- 🗓️ **Schedule Management**: Create, view, and manage availability with granular time slots
+- 📊 **Appointment Dashboard**: Unified view of booked, ongoing, and completed consultations
+- 👥 **Patient Management**: Access patient history and consultation records
+- 🎯 **Analytics**: Track completed appointments and average ratings
+- 🔄 **Flexible Rescheduling**: Cancel appointments with automatic patient notification and token issuance
 
 ---
 
-## Database Collections
+## 🏗️ Architecture
 
-### Patient
 ```
-first_Name, last_Name, email (unique), password (bcrypt), age, gender (Male/Female/Other)
-```
-
-### Doctor
-```
-first_Name, last_Name, ph, email (unique), password (bcrypt),
-speciality, degrees[], profile_Picture, completed_appointments (counter)
-```
-Profile pictures are stored at `BackEnd/public/pictures/` and served at `/pictures/:filename`.
-
-### Schedule
-```
-doctor (ref), startTime ("HH:mm"), endTime ("HH:mm"), date (Date),
-clinic_fee, slotDuration (minutes),
-status: available | booked | ongoing | completed | cancelled
-```
-Unique compound index on `{ doctor, date, startTime }` — prevents duplicate slots.
-
-### Appointment
-```
-patient_id (ref), doctor_id (ref), sechdule_Id (ref),
-status: booked | ongoing | completed | cancelled,
-meeting_id (VideoSDK roomId),
-is_rescheduled_token (boolean),
-rescheduled_from (ref Appointment)
+┌─────────────────────────────────────────────────────────────────┐
+│                         MediCare AI                              │
+├─────────────┬────────────────────┬───────────────────────────────┤
+│  Frontend   │      Backend       │        AI Service             │
+│  React 19   │   Node.js + Express│  Python FastAPI + LangChain  │
+│  Port 5173  │      Port 4000     │        Port 8000              │
+└─────────────┴────────────────────┴───────────────────────────────┘
+       │               │                        │
+       │               │                        │
+       └───────REST───>│<──────Proxied Chat────┤
+                       │                        │
+                       │<──FAISS Vector Store───┘
+                       │
+                       ├──MongoDB (Port 27017)
+                       │
+                       └──VideoSDK API (Cloud)
 ```
 
-### Chat
-```
-patient_Id (ref),
-messages[]: { sender: 'patient'|'ai', text, sources[], timestamp }
-```
-One document per chat session. Messages are pushed into the array.
+### Service Communication
 
-### Review
-```
-doctor_id (ref), patient_id (ref), appointment_id (ref, unique),
-rating (1–5), review (text, max 1000 chars)
-```
+- **Frontend → Backend**: RESTful API calls to `http://localhost:4000`
+- **Backend → AI Service**: Proxied requests to `http://127.0.0.1:8000`
+- **Backend → VideoSDK**: REST API for room management and JWT token generation
+- **VideoSDK → Backend**: Webhooks for recording completion notifications
 
 ---
 
-## Authentication
+## 🛠️ Technology Stack
 
-Two completely separate JWT auth flows, both using an httpOnly cookie named `token`.
+### Frontend
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| React | 19.2.0 | UI framework |
+| React Router | 7.12.0 | Client-side routing |
+| TailwindCSS | 4.1.18 | Utility-first CSS |
+| Vite | 7.2.4 | Build tool and dev server |
+| Axios | 1.13.2 | HTTP client |
+| Framer Motion | 12.40.0 | Animation library |
+| React Markdown | 10.1.0 | Markdown rendering |
+| VideoSDK Prebuilt | 0.3.43 | Video calling UI |
 
-| Role | Secret Env Var | Middleware | Sets on req |
-|------|---------------|------------|-------------|
-| Doctor | `SecretKey` | `Doctor.middleware.js` | `req.doctorId` |
-| Patient | `P_SecretKey` | `Patient.middleware.js` | `req.PatientId` |
+### Backend
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| Node.js | ≥18.0.0 | Runtime environment |
+| Express | 5.2.1 | Web framework |
+| MongoDB | 7.0 | Database |
+| Mongoose | 9.1.1 | ODM |
+| bcrypt | 6.0.0 | Password hashing |
+| jsonwebtoken | 9.0.3 | JWT authentication |
+| multer | 2.0.2 | File upload handling |
+| moment | 2.30.1 | Date manipulation |
+| helmet | 8.1.0 | Security headers |
+| express-rate-limit | 8.4.1 | Rate limiting |
+| pdfkit | 0.15.2 | PDF generation |
 
-The video call route uses `AnyUser.middleware.js` which tries both secrets and sets `req.userRole` to `'doctor'` or `'patient'`.
+### AI Service
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| Python | ≥3.9 | Runtime |
+| FastAPI | Latest | API framework |
+| LangChain | 0.3 | RAG orchestration |
+| Groq | Latest | LLM inference |
+| FAISS | CPU | Vector similarity search |
+| Sentence Transformers | Latest | Text embeddings |
+| faster-whisper | 1.0.3 | Audio transcription |
+| PyPDF | Latest | PDF text extraction |
 
-On login, the backend sets the httpOnly cookie. The frontend also stores minimal data in `localStorage` (name, speciality) purely for route guard checks — not for auth.
-
-Token expiry: **6 hours**. No refresh token mechanism — users must re-login after expiry.
+### External Services
+- **VideoSDK.live**: Video conferencing infrastructure
+- **Groq Cloud**: LLM inference endpoint
 
 ---
 
-## Environment Variables
+## 📦 Prerequisites
 
-### BackEnd/.env
-```env
-DB_URL=mongodb://localhost:27017/MediCare
-PORT=4000
-SecretKey=MediCare
-P_SecretKey=Patient
-ExpireIn=6h
+Before you begin, ensure you have the following installed:
+
+- **Node.js** (v18.0.0 or higher) - [Download](https://nodejs.org/)
+- **MongoDB** (v7.0 or higher) - [Download](https://www.mongodb.com/try/download/community)
+- **Python** (v3.9 or higher) - [Download](https://www.python.org/downloads/)
+- **Git** - [Download](https://git-scm.com/downloads)
+
+### Additional Requirements
+
+- **Groq API Key**: Sign up at [Groq Cloud](https://console.groq.com/)
+- **VideoSDK Account**: Register at [VideoSDK.live](https://www.videosdk.live/)
+
+---
+
+## 🚀 Installation
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/MusaShah0/Medicare-AI.git
+cd Medicare-AI
 ```
 
-### AI/.env
-```env
-GROQ_API_KEY=<your_groq_api_key>
-```
-
----
-
-## Setup & Running
-
-### Prerequisites
-- Node.js 18+
-- MongoDB running locally on port 27017
-- Python 3.9+ with `uv` or `pip`
-
----
-
-### 1. Backend
+### 2. Backend Setup
 
 ```bash
 cd BackEnd
 npm install
-node index.js
 ```
 
-Server starts on `http://localhost:4000`. Connects to MongoDB at `mongodb://localhost:27017/MediCare`.
-
----
-
-### 2. Frontend
+### 3. Frontend Setup
 
 ```bash
-cd FrontEnd
+cd ../FrontEnd
 npm install
-npm run dev
 ```
 
-App starts on `http://localhost:5173`.
+### 4. AI Service Setup
 
----
+**Using uv (recommended):**
+```bash
+cd ../AI
+pip install uv
+uv sync
+```
 
-### 3. AI Service
+**Alternative using pip:**
+```bash
+cd ../AI
+pip install -r requirements.txt
+```
 
-**First time only — build the FAISS vector store from the medical PDFs:**
+### 5. Build FAISS Vector Store
+
+First time only - index medical knowledge base:
 
 ```bash
 cd AI
 python create_memory_for_llm.py
 ```
 
-This loads PDFs from `AI/data/`, splits them into chunks, embeds them using `sentence-transformers/all-MiniLM-L6-v2`, and saves the FAISS index to `AI/vectorstore/db_faiss/`.
+This process:
+- Loads medical PDFs from `AI/data/`
+- Splits documents into optimized chunks
+- Generates embeddings using Sentence Transformers
+- Creates FAISS index at `AI/vectorstore/db_faiss/`
 
-**Start the API server:**
-
-```bash
-cd AI
-uv run uvicorn API.main:app --reload
-# or without uv:
-uvicorn API.main:app --reload
-```
-
-AI service starts on `http://localhost:8000`.
+**Duration**: ~5-10 minutes depending on hardware
 
 ---
 
-## Complete User Flows
+## ⚙️ Configuration
 
-### Doctor Flow
+### Backend Environment (.env)
 
-#### 1. Registration
-- Doctor visits `/doctor/signup`
-- Fills in: first name, last name, email, phone, speciality, qualifications (tag input), password, profile picture
-- On submit: `POST /D_SignUp` (multipart/form-data) — profile picture saved to `BackEnd/public/pictures/`, JWT cookie set, redirected to `/doctor-dashboard`
+Create `BackEnd/.env`:
 
-#### 2. Login
-- Doctor visits `/login`
-- Fills in email + password
-- On submit: `POST /D_Login` — JWT cookie set, redirected to `/doctor-dashboard`
-
-#### 3. Dashboard
-- Shows three action cards: Appointments, Create Schedule, My Schedule
-- Logout button clears the cookie and redirects to `/login`
-
-#### 4. Creating a Schedule
-- Doctor visits `/doctor/schedule/create`
-- Configures: start time, end time, slot duration (15/30/45/60 min), consultation fee
-- Selects specific calendar dates using the inline date picker (past dates disabled)
-- Clicks **Generate Slots** — frontend calculates time slots from start to end based on duration
-- Preview panel shows all generated slots; individual slots can be removed by clicking them
-- Clicks **Confirm & Save Schedule** → `POST /Add_Sechdule`
-  - Backend rejects past dates (400)
-  - Backend rejects duplicate date×startTime combinations (409)
-  - On success: one Schedule document created per date×slot combination
-
-#### 5. Viewing Schedule
-- Doctor visits `/doctor/schedule`
-- Left sidebar shows dates; clicking a date shows all slots for that day
-- Each slot shows: time range, fee, duration, status badge (available/booked/ongoing/completed/cancelled)
-- Available slots have a delete button → `DELETE /Delete_Sechdule/:id`
-
-#### 6. Managing Appointments
-- Doctor visits `/doctor/appointments`
-- Shows all active (booked/ongoing) appointments with patient name, date, time
-- **Join Call:** shown when current time is within the slot window → navigates to `/room/:meetingId`
-- **Reschedule:** amber button on booked appointments → opens confirmation modal
-  - On confirm: `POST /Reschedule_Appointment/:appointmentId`
-  - Appointment marked `cancelled`, `is_rescheduled_token: true`
-  - Patient receives a free rebook token
-  - Original schedule slot stays locked (not available to others)
-
----
-
-### Patient Flow
-
-#### 1. Registration
-- Patient visits `/patient/signup`
-- Fills in: first name, last name, email, age, gender, password
-- On submit: `POST /P_SignUp` — redirected to `/patient/login`
-
-#### 2. Login
-- Patient visits `/patient/login`
-- Fills in email + password
-- On submit: `POST /P_Login` — JWT cookie set, redirected to `/patient/dashboard`
-
-#### 3. Dashboard
-- Shows two feature cards: AI Symptom Checker and Find a Specialist
-- Left sidebar navigation: Dashboard, My Appointments, Find Doctor, AI Symptom Chat
-- Logout clears cookie and redirects to `/patient/login`
-
-#### 4. Finding a Doctor
-- Patient visits `/doctors`
-- `GET /View_Doctor` fetches all doctors
-- Search bar filters by name or speciality in real time
-- Each doctor card shows: photo, name, speciality, degrees
-- Clicking **Book Appointment** navigates to `/book-appointment/:doctorId`
-
-#### 5. Booking an Appointment
-- Page calls `GET /Show_Appoitment_Sechdule/:doctorId` — returns available slots grouped by date
-- Left panel shows doctor info + stats (completed appointments, avg rating, total reviews) + last 5 patient reviews
-- Right panel shows accordion date list; expanding a date shows time slot buttons
-- Patient selects a slot → confirmation modal shows doctor, date, time, fee
-- On confirm: `POST /Book_Appointment/:scheduleId`
-  - Backend checks for time conflicts with existing appointments on the same day
-  - Backend calls VideoSDK REST API to create a video room → gets `roomId`
-  - Appointment saved with `meeting_id = roomId`, schedule marked `booked`
-  - Patient redirected to `/my-appointments`
-
-#### 6. My Appointments
-- `GET /My_Appointments` returns active appointments (booked/ongoing) + cancelled appointments with rebook tokens
-- Each card shows: doctor name, speciality, date, time, status
-- **Join Call:** shown when within the slot time window → `/room/:meetingId`
-- **Leave a Review:** shown for completed appointments not yet reviewed
-- **Rebook Free:** shown for cancelled appointments with `is_rescheduled_token: true`
-  - Opens slot picker modal showing the same doctor's available slots
-  - Patient picks a new slot → `POST /Redeem_Reschedule/:appointmentId/:scheduleId`
-  - New appointment created at no charge, original locked slot freed back to available, token consumed
-
-#### 7. AI Symptom Chat
-- Patient visits `/ai-chat`
-- `POST /startNewChat` creates a new chat session → returns `sessionId`
-- Patient types symptoms in the input bar
-- Each message: `POST /SendMessage` with `{ question, session_id }`
-  - Backend proxies to FastAPI at `http://127.0.0.1:8000/chat`
-  - FastAPI runs the RAG pipeline: retrieves relevant passages from FAISS → Groq LLaMA 3.1 8B generates a structured medical response
-  - Response saved to the Chat document, returned to frontend
-- AI responses rendered as formatted markdown with sections: Understanding Symptoms, Possible Conditions, Treatment Approaches, Medications, Precautions, When to Seek Care, Next Steps
-- Medical source references shown below each AI response
-
----
-
-### Video Call Flow
-
-#### Joining
-1. Patient or doctor navigates to `/room/:roomId`
-2. Frontend calls `GET /join-meeting/:roomId` (with auth cookie)
-3. `AnyUser_Check` middleware identifies the caller as doctor or patient
-4. Backend validates:
-   - Room exists (appointment with this `meeting_id`)
-   - Appointment not already completed or cancelled
-   - Correct calendar day
-   - Current time is within the slot window (5-minute early buffer allowed)
-5. On first join: appointment and schedule both set to `ongoing`
-6. Backend registers a server-side auto-complete timer (`scheduleAutoComplete`) — idempotent, only one timer per appointment regardless of how many times join is called
-7. Backend returns: VideoSDK JWT token, participant name, doctor/patient names, user role, appointment ID, `remainingTime` (seconds until slot end)
-
-#### During the Call
-- VideoSDK Prebuilt SDK renders the full-page video UI (camera feeds, mic/camera controls, chat, screen share, leave button)
-- A floating countdown timer pill (top-left corner) shows remaining time
-- Timer turns red and pulses when under 2 minutes
-
-#### Session End
-The session ends in one of three ways:
-- **Countdown reaches zero** — frontend `timeLeft` hits 0, `endSession()` called
-- **User clicks Leave** inside VideoSDK UI — `onMeetingLeft` callback fires `endSession()`
-- **Server timer fires** — `scheduleAutoComplete` setTimeout fires at slot end time
-
-**For patients:** Full-screen end overlay appears with a review form (5-star rating + optional text). After submit or skip → navigated to `/my-appointments`.
-
-**For doctors:** Immediately redirected to `/doctor/appointments` — no review form.
-
-**Server-side (regardless of frontend):** At slot end time, the server marks appointment → `completed`, schedule → `completed`, and increments `doctor.completed_appointments` by 1.
-
----
-
-## API Reference
-
-### Doctor
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/D_SignUp` | — | Register (multipart/form-data with profile_Picture) |
-| POST | `/D_Login` | — | Login, sets httpOnly cookie |
-| GET | `/View_Doctor` | — | List all doctors (public) |
-| GET | `/Doctor_Logout` | — | Clear cookie |
-
-### Patient
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/P_SignUp` | — | Register |
-| POST | `/P_Login` | — | Login, sets httpOnly cookie |
-| GET | `/logout` | — | Clear cookie |
-
-### Schedule (Doctor protected)
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/Add_Sechdule` | Doctor | Bulk create slots for selected dates |
-| GET | `/Show_Doctor_Sechdule` | Doctor | All upcoming slots (auto-cancels stale) |
-| GET | `/Show_Doctor_Sechdule/:date` | Doctor | Slots for a specific date |
-| DELETE | `/Delete_Sechdule/:id` | Doctor | Delete an available slot |
-| GET | `/Show_Sechdule_Status/:status` | Doctor | Filter slots by status |
-
-### Appointments
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/Show_Appoitment_Sechdule/:doctorId` | — | Available slots for a doctor |
-| POST | `/Book_Appointment/:scheduleId` | Patient | Book a slot, creates VideoSDK room |
-| GET | `/My_Appointments` | Patient | Patient's active appointments |
-| GET | `/Doctor_Appointments` | Doctor | Doctor's active appointments |
-| GET | `/get-video-token` | — | Get a VideoSDK JWT token |
-| GET | `/join-meeting/:roomId` | Doctor or Patient | Validate time window, return token + remainingTime |
-| POST | `/Reschedule_Appointment/:appointmentId` | Doctor | Cancel appointment, issue free rebook token to patient |
-| POST | `/Redeem_Reschedule/:appointmentId/:scheduleId` | Patient | Use rebook token to book a new slot for free |
-
-### Chat (Patient protected)
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/startNewChat` | Patient | Create new chat session |
-| POST | `/SendMessage` | Patient | Send message, proxied to AI service |
-
-### Reviews
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/review` | Patient | Submit a review for a completed appointment |
-| GET | `/review/check/:appointmentId` | Patient | Check if appointment already reviewed |
-| GET | `/review/doctor/:doctorId` | — | Get all reviews for a doctor |
-| GET | `/doctor/profile/:doctorId` | — | Get completed count + avg rating + last 5 reviews |
-
----
-
-## Frontend Routes
-
-```
-/                          → Home (public)
-/login                     → Doctor login
-/doctor/signup             → Doctor registration
-/patient/signup            → Patient registration
-/patient/login             → Patient login
-
-/doctor-dashboard          → Doctor home          [Doctor auth]
-/doctor/schedule/create    → Create schedule       [Doctor auth]
-/doctor/schedule           → View/manage schedule  [Doctor auth]
-/doctor/appointments       → Appointments + video  [Doctor auth]
-
-/patient/dashboard         → Patient home          [Patient auth]
-/doctors                   → Browse doctors        [Patient auth]
-/book-appointment/:id      → Book a slot           [Patient auth]
-/my-appointments           → My appointments       [Patient auth]
-/ai-chat                   → AI symptom chat       [Patient auth]
-
-/room/:roomId              → Video call room       [Doctor or Patient auth, validated server-side]
-```
-
----
-
-## AI Service Details
-
-**Model:** Groq `llama-3.1-8b-instant`
-**Embeddings:** `sentence-transformers/all-MiniLM-L6-v2` (runs locally)
-**Vector store:** FAISS, pre-built from 5 medical PDFs in `AI/data/`
-
-**Medical PDFs included:**
-- Harrison's Manual of Medicine (17th Edition)
-- Hutchison's Clinical Methods
-- Nelson Essentials of Pediatrics
-- Robbins Pathology (7th Edition)
-- The Gale Encyclopedia of Medicine (2nd Edition)
-
-**RAG Pipeline:**
-1. Patient question → history-aware retriever (uses last 10 messages for context)
-2. Retriever searches FAISS index for relevant passages (top-k chunks)
-3. Retrieved passages + question assembled into a structured prompt
-4. Groq LLaMA generates a response in structured markdown format
-5. Response + source references returned to backend → saved to Chat document → returned to frontend
-
-**Session history:** Stored in-memory per `session_id`. Last 10 messages kept per session. Sessions are lost on server restart.
-
----
-
-## Auto-Cancellation Logic
-
-`BackEnd/utils/autoCancel.js` handles stale appointments and schedules automatically.
-
-A slot or appointment is considered stale if:
-- Its date is before today (midnight boundary), OR
-- Its date is today AND its `endTime` has already passed
-
-Stale resolution:
-- `booked` → `cancelled` (patient never joined)
-- `ongoing` → `completed` (meeting ran out of time, also increments doctor's completed count)
-
-This runs on every call to `GET /My_Appointments`, `GET /Doctor_Appointments`, and `GET /Show_Doctor_Sechdule` — so the data is always fresh when the user views it.
-
----
-
-## Known Codebase Typos
-
-These typos exist throughout the codebase. Do not rename without updating all references.
-
-| Typo in code | Correct spelling |
-|-------------|-----------------|
-| `Appoitment` | Appointment |
-| `Sechdule` | Schedule |
-| `Dooctor.model.js` | Doctor.model.js |
-| `Rewiew.model.js` | Review.model.js |
-| `Controlers/` | Controllers/ |
-
----
-
-## Additional Documentation
-
-- [`design.md`](./design.md) — UI design reference: every page, all fields, buttons, and displayed data (for Stitch AI or similar design tools)
-- [`videocall.md`](./videocall.md) — Complete video call flow documentation: VideoSDK integration, server-side timer, join validation, post-session behavior
-
-
----
-
-## 🆕 AI Meeting Notes Feature
-
-After a video consultation ends, patients can download an AI-generated PDF summary of the full consultation — including both the doctor's and patient's sides of the conversation.
-
-### How It Works
-
-1. **Recording starts**: When the first participant joins, VideoSDK cloud recording starts automatically (server-side)
-2. **Recording runs**: Both participants are recorded for the entire session duration
-3. **Recording stops**: When the appointment time ends, recording stops automatically
-4. **Webhook received**: VideoSDK sends a webhook when the recording file is ready (1-3 minutes after session ends)
-5. **Download + transcribe**: Backend downloads the audio and sends it to the AI service for transcription using `faster-whisper`
-6. **Summarize**: The transcript is summarized by Groq `llama-3.1-8b-instant` into a patient-friendly format with 5 structured sections
-7. **PDF generated**: A branded PDF is created using `pdfkit`
-8. **Patient downloads**: Patient sees a "View Consultation Notes" button on their My Appointments page for completed appointments
-
-### Setup Requirements
-
-**Backend dependencies:**
-```bash
-cd BackEnd
-npm install pdfkit
-```
-
-**AI Service dependencies:**
-```bash
-cd AI
-uv add faster-whisper==1.0.3
-```
-
-**Environment variables:**
-Add to `BackEnd/.env`:
 ```env
+# Database
+DB_URL=mongodb://localhost:27017/MediCare
+
+# Server
+PORT=4000
+
+# JWT Secrets (CHANGE IN PRODUCTION)
+SecretKey=your_doctor_jwt_secret_key_here
+P_SecretKey=your_patient_jwt_secret_key_here
+ExpireIn=6h
+
+# VideoSDK (Get from https://app.videosdk.live/api-keys)
+VIDEOSDK_API_KEY=your_videosdk_api_key
+VIDEOSDK_SECRET_KEY=your_videosdk_secret_key
+
+# Webhooks (use ngrok URL for local development)
 WEBHOOK_BASE_URL=http://localhost:4000
 ```
 
-**Important:** For local testing, you must use [ngrok](https://ngrok.com) to expose port 4000 publicly so VideoSDK webhooks can reach your server:
-```bash
-ngrok http 4000
-# Then update WEBHOOK_BASE_URL in .env with the ngrok HTTPS URL
+### AI Service Environment (.env)
+
+Create `AI/.env`:
+
+```env
+# Groq API (Get from https://console.groq.com/keys)
+GROQ_API_KEY=your_groq_api_key_here
+
+# Optional: HuggingFace token for gated models
+HF_TOKEN=your_huggingface_token
 ```
 
-### New API Endpoints
+### Frontend Environment (.env)
 
-**Patient endpoints:**
-- `GET /appointments/:appointmentId/notes` — Check if notes are ready
-- `GET /notes/:noteId/download` — Download the PDF
+Create `FrontEnd/.env` (optional):
 
-**Webhook endpoint (called by VideoSDK):**
-- `POST /webhook/videosdk` — Receives recording-ready notification
+```env
+VITE_API_URL=http://localhost:4000
+```
 
-**AI Service endpoints:**
-- `POST /transcribe` — Transcribe audio file (multipart/form-data)
-- `POST /summarize` — Generate patient-friendly summary
+---
 
-### Database Schema
+## 🎮 Running the Application
 
-**New collection: `meetingnotes`**
+### Development Mode
+
+**Terminal 1 - MongoDB:**
+```bash
+mongod
+# Or if using MongoDB service:
+# sudo systemctl start mongod  (Linux)
+# brew services start mongodb-community  (macOS)
+```
+
+**Terminal 2 - Backend:**
+```bash
+cd BackEnd
+node index.js
+```
+
+**Terminal 3 - AI Service:**
+```bash
+cd AI
+uv run uvicorn API.main:app --reload
+# Or: uvicorn API.main:app --reload
+```
+
+**Terminal 4 - Frontend:**
+```bash
+cd FrontEnd
+npm run dev
+```
+
+**Terminal 5 - ngrok (for webhooks in local dev):**
+```bash
+ngrok http 4000
+# Update WEBHOOK_BASE_URL in BackEnd/.env with the HTTPS URL
+```
+
+### Access the Application
+
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:4000
+- **AI Service**: http://localhost:8000
+- **API Docs**: http://localhost:8000/docs
+
+---
+
+## 📚 API Documentation
+
+### Authentication Endpoints
+
+#### Doctor Authentication
+```http
+POST /D_SignUp
+Content-Type: multipart/form-data
+
+Body:
+- first_Name: string
+- last_Name: string  
+- email: string (unique)
+- password: string
+- ph: string
+- speciality: string
+- degrees: string[] (comma-separated)
+- profile_Picture: file
+
+Response: 200 OK + Set-Cookie
+```
+
+```http
+POST /D_Login
+Content-Type: application/json
+
+Body:
+{
+  "email": "doctor@example.com",
+  "password": "password123"
+}
+
+Response: 200 OK + Set-Cookie
+```
+
+#### Patient Authentication
+```http
+POST /P_SignUp
+Content-Type: application/json
+
+Body:
+{
+  "first_Name": "John",
+  "last_Name": "Doe",
+  "email": "patient@example.com",
+  "password": "password123",
+  "age": 30,
+  "gender": "Male"
+}
+
+Response: 200 OK
+```
+
+```http
+POST /P_Login
+Content-Type: application/json
+
+Body:
+{
+  "email": "patient@example.com",
+  "password": "password123"
+}
+
+Response: 200 OK + Set-Cookie
+```
+
+### Schedule Management (Doctor Protected)
+
+```http
+POST /Add_Sechdule
+Authorization: Cookie (Doctor JWT)
+Content-Type: application/json
+
+Body:
+{
+  "dates": ["2024-01-15", "2024-01-16"],
+  "slots": [
+    {"startTime": "09:00", "endTime": "10:00"},
+    {"startTime": "10:00", "endTime": "11:00"}
+  ],
+  "clinic_fee": 500,
+  "slotDuration": 30
+}
+
+Response: 201 Created
+```
+
+### Appointment Booking
+
+```http
+POST /Book_Appointment/:scheduleId
+Authorization: Cookie (Patient JWT)
+
+Response:
+{
+  "message": "Appointment booked successfully",
+  "appointment": {...},
+  "meeting_id": "abc-def-ghi"
+}
+```
+
+### AI Chat
+
+```http
+POST /SendMessage
+Authorization: Cookie (Patient JWT)
+Content-Type: application/json
+
+Body:
+{
+  "question": "I have a persistent headache and fever",
+  "session_id": "session_12345"
+}
+
+Response:
+{
+  "answer": "...",
+  "sources": [...]
+}
+```
+
+### Video Call
+
+```http
+GET /join-meeting/:roomId
+Authorization: Cookie (Doctor or Patient JWT)
+
+Response:
+{
+  "token": "eyJhbGc...",
+  "participantName": "Dr. Smith",
+  "patientName": "John Doe",
+  "doctorName": "Dr. Smith",
+  "userRole": "doctor",
+  "appointmentId": "...",
+  "remainingTime": 1800
+}
+```
+
+For complete API documentation, see the interactive Swagger docs at `http://localhost:8000/docs` when the AI service is running.
+
+---
+
+## 🗄️ Database Schema
+
+### Collections Overview
+
+```
+MediCare Database
+├── patients        (User accounts for patients)
+├── doctors         (User accounts for doctors)
+├── schedules       (Doctor availability slots)
+├── appoitments     (Booked consultations)
+├── chats           (AI symptom chat sessions)
+├── rewiews         (Patient reviews)
+└── meetingnotes    (AI-generated consultation summaries)
+```
+
+### Key Models
+
+#### Patient
 ```javascript
 {
-  appointment_id: ObjectId (unique),
-  status: 'processing' | 'complete' | 'failed',
+  _id: ObjectId,
+  first_Name: String (required),
+  last_Name: String (required),
+  email: String (unique, required),
+  password: String (bcrypt hashed, required),
+  age: Number (required),
+  gender: Enum ['Male', 'Female', 'Other'] (required),
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+#### Doctor
+```javascript
+{
+  _id: ObjectId,
+  first_Name: String (required),
+  last_Name: String (required),
+  email: String (unique, required),
+  password: String (bcrypt hashed, required),
+  ph: String (required),
+  speciality: String (required),
+  degrees: [String] (required),
+  profile_Picture: String,
+  completed_appointments: Number (default: 0),
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+#### Schedule
+```javascript
+{
+  _id: ObjectId,
+  doctor: ObjectId (ref: Doctor, required),
+  startTime: String (HH:mm format, required),
+  endTime: String (HH:mm format, required),
+  date: Date (required),
+  clinic_fee: Number (required),
+  slotDuration: Number (minutes, required),
+  status: Enum ['available', 'booked', 'ongoing', 'completed', 'cancelled'] (default: 'available'),
+  createdAt: Date,
+  updatedAt: Date
+}
+
+// Unique compound index: {doctor, date, startTime}
+```
+
+#### Appointment
+```javascript
+{
+  _id: ObjectId,
+  patient_id: ObjectId (ref: Patient, required),
+  doctor_id: ObjectId (ref: Doctor, required),
+  sechdule_Id: ObjectId (ref: Schedule, required),
+  status: Enum ['booked', 'ongoing', 'completed', 'cancelled'] (default: 'booked'),
+  meeting_id: String (VideoSDK room ID, required),
+  is_rescheduled_token: Boolean (default: false),
+  rescheduled_from: ObjectId (ref: Appointment),
+  meeting_note_id: ObjectId (ref: MeetingNote),
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+#### MeetingNote
+```javascript
+{
+  _id: ObjectId,
+  appointment_id: ObjectId (ref: Appointment, unique, required),
+  status: Enum ['processing', 'complete', 'failed'] (default: 'processing'),
   recording_url: String,
   audio_path: String,
   transcript: String,
   summary: String,
   pdf_path: String,
   error_message: String,
-  created_at: Date
+  created_at: Date (default: Date.now),
+  updated_at: Date
 }
 ```
 
-**Modified collection: `appoitments`**
-```javascript
-{
-  // ... existing fields ...
-  meeting_note_id: ObjectId (ref: MeetingNote)  // NEW
-}
+---
+
+## 🧪 Testing
+
+### Backend Tests
+
+The backend includes comprehensive test suites covering:
+
+1. **Unit Tests**: Pure function testing
+2. **Equivalence Partitioning**: Input validation
+3. **Boundary Value Analysis**: Edge case handling
+4. **Data Flow Testing**: State transitions
+5. **Use Case Testing**: User workflows
+6. **Integration Tests**: API endpoint testing
+7. **Performance Tests**: Response time benchmarks
+8. **Stress Tests**: Concurrent request handling
+
+```bash
+cd BackEnd
+
+# Run all tests
+npm test
+
+# Run with coverage report
+npm run test:coverage
 ```
 
-### Security Features
+### Frontend Tests
 
-- **PHI Authorization**: Download endpoint verifies the requesting patient owns the appointment
-- **Idempotency**: MongoDB unique index prevents duplicate processing from duplicate webhooks
-- **Timeout Recovery**: Notes stuck in 'processing' for >1 hour are marked as failed
-- **Cleanup**: Audio files are automatically deleted after PDF generation
+```bash
+cd FrontEnd
 
-### Testing
+# Lint code
+npm run lint
 
-See [`docs/meeting-notes-testing-checklist.md`](./docs/meeting-notes-testing-checklist.md) for a complete step-by-step testing guide.
+# Build for production (validates code)
+npm run build
+```
 
-**Quick test:**
-1. Start all services (Backend, AI, Frontend) + ngrok
-2. Book and join a video consultation
-3. Wait for appointment to end
-4. Wait 2-3 minutes for processing
-5. Check "My Appointments" page for "View Consultation Notes" button
-6. Download the PDF
+### AI Service Tests
 
-### Additional Documentation
+```bash
+cd AI
 
-- [`docs/meeting-notes-setup.md`](./docs/meeting-notes-setup.md) — Complete setup guide and troubleshooting
-- [`docs/meeting-notes-implementation-summary.md`](./docs/meeting-notes-implementation-summary.md) — Implementation summary with all files created/modified
-- [`docs/meeting-notes-testing-checklist.md`](./docs/meeting-notes-testing-checklist.md) — Step-by-step testing checklist
+# Test transcription endpoint
+curl -X POST http://localhost:8000/transcribe \
+  -F "audio_file=@test_audio.mp4"
+
+# Test chat endpoint
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What are symptoms of flu?", "session_id": "test_123"}'
+```
+
+---
+
+## 🚢 Deployment
+
+### Docker Deployment
+
+A complete `docker-compose.yml` is provided at the project root:
+
+```bash
+# Build and start all services
+docker-compose up --build
+
+# Run in detached mode
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+**Services included:**
+- MongoDB (persistent volume)
+- Backend (with health checks)
+- AI Service (with model caching)
+- Frontend (Nginx reverse proxy)
+
+### Production Considerations
+
+1. **Environment Variables**
+   - Use strong, unique JWT secrets
+   - Rotate API keys regularly
+   - Never commit `.env` files
+
+2. **Database**
+   - Use MongoDB Atlas or managed MongoDB
+   - Enable authentication
+   - Configure backup strategy
+
+3. **SSL/TLS**
+   - Use HTTPS for all endpoints
+   - Configure SSL certificates
+   - Enable HSTS headers
+
+4. **Monitoring**
+   - Set up application monitoring (e.g., PM2, New Relic)
+   - Configure error tracking (e.g., Sentry)
+   - Monitor API rate limits
+
+5. **Scaling**
+   - Use load balancer for multiple backend instances
+   - Configure Redis for session storage
+   - Implement CDN for static assets
+
+---
+
+## 🔒 Security Considerations
+
+### Authentication & Authorization
+
+- JWT tokens stored in **httpOnly cookies** (XSS protection)
+- Separate secrets for doctor and patient tokens
+- Token expiration: 6 hours
+- Password hashing using bcrypt (cost factor: 10)
+
+### API Security
+
+- **Helmet.js**: Security headers (CSP, XSS protection)
+- **CORS**: Configured for frontend origin only
+- **Rate Limiting**: 10 requests per 15 minutes for auth endpoints
+- **Input Validation**: All user inputs sanitized
+- **SQL Injection Protection**: Mongoose ORM with parameterized queries
+
+### Data Protection
+
+- **PHI Compliance**: Patient health information encrypted at rest
+- **Audit Logging**: All appointment and chat actions logged
+- **Access Control**: Role-based authorization for all endpoints
+- **File Upload Security**: Type and size validation for profile pictures
+
+### Known Limitations
+
+⚠️ **Important Security Notes:**
+
+1. **No Refresh Token**: Users must re-login after 6-hour expiration
+2. **In-Memory Sessions**: AI chat history lost on server restart
+3. **Local File Storage**: Profile pictures and notes stored locally (use S3 in production)
+4. **Hardcoded Secrets**: Some VideoSDK credentials in code (move to environment variables)
+
+---
+
+## 🐛 Known Issues & Limitations
+
+### Filename Typos
+
+The following typos exist throughout the codebase. **Do not rename** without updating all references:
+
+| Incorrect | Correct | Files Affected |
+|-----------|---------|----------------|
+| `Appoitment` | Appointment | Models, Controllers, Routes |
+| `Sechdule` | Schedule | Models, Controllers, Routes |
+| `Dooctor.model.js` | Doctor.model.js | Models folder |
+| `Rewiew.model.js` | Review.model.js | Models folder |
+| `Controlers/` | Controllers/ | Directory name |
+
+### Technical Debt
+
+- [ ] Implement refresh token mechanism
+- [ ] Add persistent session storage (Redis)
+- [ ] Move file uploads to cloud storage (AWS S3)
+- [ ] Add comprehensive error logging
+- [ ] Implement automated database backups
+- [ ] Add end-to-end tests
+- [ ] Improve mobile responsiveness
+- [ ] Add multi-language support
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+### Development Guidelines
+
+- Follow existing code style and conventions
+- Write meaningful commit messages
+- Add tests for new features
+- Update documentation as needed
+- Ensure all tests pass before submitting PR
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 👥 Authors
+
+- **Musa Shah** - *Initial work* - [MusaShah0](https://github.com/MusaShah0)
+
+---
+
+## 🙏 Acknowledgments
+
+- **Groq** for providing fast LLM inference
+- **VideoSDK** for reliable video infrastructure
+- **LangChain** for simplifying RAG implementation
+- **MongoDB** for flexible data modeling
+- **React** and **Vite** teams for excellent developer experience
+
+---
+
+## 📞 Support
+
+For support, email support@medicare-ai.com or open an issue on GitHub.
+
+---
+
+## 🗺️ Roadmap
+
+- [ ] Multi-language support
+- [ ] Mobile applications (iOS/Android)
+- [ ] Electronic Health Records (EHR) integration
+- [ ] Prescription management
+- [ ] Payment gateway integration
+- [ ] Insurance claims processing
+- [ ] Multi-factor authentication
+- [ ] Telemedicine marketplace
+- [ ] AI-powered diagnosis assistance
+- [ ] Wearable device integration
+
+---
+
+<div align="center">
+  <strong>Built with ❤️ for better healthcare access</strong>
+</div>
