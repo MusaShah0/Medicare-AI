@@ -600,11 +600,11 @@ const Home = () => {
               {
                 step: '03',
                 icon: (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
-                    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                    <circle cx="18" cy="18" r="3" fill="currentColor" stroke="none" />
-                    <path d="M16.5 18l1 1 2-2" stroke="white" strokeWidth="1.8" />
+                  <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8">
+                    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                    <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="1.6" />
+                    <circle cx="19" cy="19" r="3.5" fill="currentColor" />
+                    <path d="M17.5 19l1 1 2-2" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 ),
                 title: 'Book Specialist',
