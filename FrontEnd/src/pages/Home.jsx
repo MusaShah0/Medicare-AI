@@ -637,8 +637,8 @@ const Home = () => {
                     {item.step}
                   </div>
 
-                  {/* Icon container */}
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#0A2540] to-[#0d3060] flex items-center justify-center text-[#00B4A0] mb-6 group-hover:scale-110 transition-transform duration-300">
+                  {/* Icon */}
+                  <div className="text-[#00B4A0] mb-6 group-hover:scale-110 transition-transform duration-300">
                     {item.icon}
                   </div>
 
