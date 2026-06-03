@@ -549,6 +549,130 @@ const Home = () => {
         </div>
       </header>
 
+      {/* ═══════════════════════════ HOW IT WORKS ════════════════════════════ */}
+      <section id="how-it-works" className="py-24 bg-gradient-to-b from-[#F4F7F9] to-white relative overflow-hidden">
+        {/* Background decorative elements */}
+        <div className="absolute top-20 right-0 w-96 h-96 bg-[#00B4A0]/5 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#0A2540]/5 rounded-full blur-[100px] pointer-events-none" />
+
+        <div className="max-w-7xl mx-auto px-5 sm:px-8 relative z-10">
+          {/* Header */}
+          <div className="text-center mb-16">
+            <p className="text-xs font-bold text-[#00B4A0] uppercase tracking-widest mb-3">Simple & Effective</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#0A2540] leading-tight">
+              How It Works
+            </h2>
+            <p className="text-slate-500 mt-5 max-w-2xl mx-auto text-base leading-relaxed">
+              From symptom analysis to specialist consultation — get quality healthcare in four simple steps
+            </p>
+          </div>
+
+          {/* Steps Grid */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {[
+              {
+                step: '01',
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
+                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                    <path d="M8 10h.01M12 10h.01M16 10h.01" strokeWidth="2.5" />
+                  </svg>
+                ),
+                title: 'Describe Symptoms',
+                desc: 'Chat with our AI assistant in plain language — just as you would talk to a doctor.',
+                delay: '0s'
+              },
+              {
+                step: '02',
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
+                    <path d="M9.5 2a2.5 2.5 0 00-2.45 2H6a3 3 0 00-3 3 3 3 0 001.5 2.6V11a3 3 0 003 3h.5v1.5a1.5 1.5 0 003 0V14h.5a3 3 0 003-3v-1.4A3 3 0 0016 7a3 3 0 00-3-3h-1.05A2.5 2.5 0 009.5 2z" />
+                    <path d="M6.5 9.5h1M16.5 9.5h1M9.5 12.5v1M14.5 12.5v1" strokeWidth="2" />
+                  </svg>
+                ),
+                title: 'AI Analysis',
+                desc: 'Get instant evidence-based insights from verified medical textbooks and guidelines.',
+                delay: '0.15s'
+              },
+              {
+                step: '03',
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
+                    <path d="M4.5 6.375a4.125 4.125 0 008.25 0" />
+                    <path d="M8.625 6.375V10.5a5.625 5.625 0 0011.25 0v-1.125" />
+                    <circle cx="19.875" cy="8.25" r="1.125" />
+                    <path d="M8.625 10.5a3.375 3.375 0 006.75 0" />
+                  </svg>
+                ),
+                title: 'Book Specialist',
+                desc: 'Browse verified doctors, view real-time availability, and book appointments instantly.',
+                delay: '0.3s'
+              },
+              {
+                step: '04',
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
+                    <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+                    <rect x="9" y="3" width="6" height="4" rx="1" />
+                    <path d="M9 12h6M9 16h4" />
+                  </svg>
+                ),
+                title: 'Video Consult',
+                desc: 'Connect via HD video call and receive AI-generated consultation notes afterward.',
+                delay: '0.45s'
+              }
+            ].map((item, idx) => (
+              <div key={idx} 
+                className="group relative"
+                style={{ animation: 'fadeSlideIn 0.6s ease-out both', animationDelay: item.delay }}>
+                
+                {/* Connecting line (hidden on mobile and last item) */}
+                {idx < 3 && (
+                  <div className="hidden lg:block absolute top-16 left-[calc(50%+2rem)] w-[calc(100%-4rem)] h-[2px] bg-gradient-to-r from-[#00B4A0]/40 via-[#00B4A0]/20 to-transparent" />
+                )}
+
+                <div className="relative bg-white rounded-2xl p-8 border border-slate-100 hover:border-[#00B4A0]/30 transition-all duration-300 hover:shadow-xl hover:shadow-[#00B4A0]/10 hover:-translate-y-1 h-full">
+                  {/* Step number badge */}
+                  <div className="absolute -top-4 -right-4 w-12 h-12 rounded-full bg-gradient-to-br from-[#00B4A0] to-teal-400 flex items-center justify-center text-white font-extrabold text-sm shadow-lg shadow-[#00B4A0]/30">
+                    {item.step}
+                  </div>
+
+                  {/* Icon container */}
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#0A2540] to-[#0d3060] flex items-center justify-center text-[#00B4A0] mb-6 group-hover:scale-110 transition-transform duration-300">
+                    {item.icon}
+                  </div>
+
+                  {/* Content */}
+                  <h3 className="text-xl font-extrabold text-[#0A2540] mb-3 leading-tight">
+                    {item.title}
+                  </h3>
+                  <p className="text-slate-500 text-sm leading-relaxed">
+                    {item.desc}
+                  </p>
+
+                  {/* Hover effect indicator */}
+                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#00B4A0] to-teal-400 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left rounded-b-2xl" />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA Section */}
+          <div className="mt-16 text-center">
+            <div className="inline-flex flex-col sm:flex-row items-center gap-4 bg-white rounded-2xl p-6 border border-slate-100 shadow-lg">
+              <div className="flex-1 text-left">
+                <p className="text-sm font-bold text-[#0A2540] mb-1">Ready to get started?</p>
+                <p className="text-xs text-slate-500">Join thousands taking control of their healthcare journey</p>
+              </div>
+              <Link to="/patient/signup" 
+                className="px-8 py-3.5 rounded-xl bg-gradient-to-r from-[#00B4A0] to-teal-400 text-white font-bold text-sm shadow-lg shadow-[#00B4A0]/30 hover:shadow-xl hover:shadow-[#00B4A0]/40 transition-all hover:-translate-y-0.5 whitespace-nowrap">
+                Start Free Now
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ═══════════════════════════ SERVICES ════════════════════════════════ */}
       <section id="services" className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-5 sm:px-8">
