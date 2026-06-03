@@ -657,19 +657,6 @@ const Home = () => {
             ))}
           </div>
 
-          {/* CTA Section */}
-          <div className="mt-16 text-center">
-            <div className="inline-flex flex-col sm:flex-row items-center gap-4 bg-white rounded-2xl p-6 border border-slate-100 shadow-lg">
-              <div className="flex-1 text-left">
-                <p className="text-sm font-bold text-[#0A2540] mb-1">Ready to get started?</p>
-                <p className="text-xs text-slate-500">Join thousands taking control of their healthcare journey</p>
-              </div>
-              <Link to="/patient/signup" 
-                className="px-8 py-3.5 rounded-xl bg-gradient-to-r from-[#00B4A0] to-teal-400 text-white font-bold text-sm shadow-lg shadow-[#00B4A0]/30 hover:shadow-xl hover:shadow-[#00B4A0]/40 transition-all hover:-translate-y-0.5 whitespace-nowrap">
-                Start Free Now
-              </Link>
-            </div>
-          </div>
         </div>
       </section>
 
