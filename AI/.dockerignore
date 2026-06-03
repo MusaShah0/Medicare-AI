@@ -1,0 +1,7 @@
+__pycache__
+.env
+vectorstore/db_faiss
+models/
+evaluation/
+*.pyc
+.pytest_cache
