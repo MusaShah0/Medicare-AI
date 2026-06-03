@@ -5,9 +5,9 @@ import { WorldMap } from '../components/ui/map';
 
 
 // ─── Colour tokens (3-colour rule) ───────────────────────────────────────────
-// Navy  : #0A2540   — authority / trust
-// Teal  : #00B4A0   — health / action
-// Chalk : #F4F7F9   — background / space
+// Navy  : #0A2540   - authority / trust
+// Teal  : #00B4A0   - health / action
+// Chalk : #F4F7F9   - background / space
 
 const ASSETS = {
   logo : '/content/logo_transparent.png',
@@ -30,7 +30,7 @@ const PATIENT_SERVICES = [
     img     : ASSETS.c1,
     imgPos  : 'center center',
     title   : 'AI Symptom Analysis',
-    desc    : 'Describe your symptoms in plain language, just as you would to a doctor. Our RAG-powered AI engine instantly cross-references verified medical textbooks and clinical guidelines to deliver evidence-based insights — not generic web guesses.',
+    desc    : 'Describe your symptoms in plain language, just as you would to a doctor. Our RAG-powered AI engine instantly cross-references verified medical textbooks and clinical guidelines to deliver evidence-based insights, not generic web guesses.',
     bullets : [
       'Multi-symptom analysis in seconds',
       'Evidence-based possible conditions',
@@ -58,7 +58,7 @@ const PATIENT_SERVICES = [
     img  : ASSETS.m1,
     imgFit: 'contain',
     title: 'Book in Seconds',
-    desc : 'Say goodbye to endless phone calls and waiting room delays. View real-time availability for any specialist, pick a time that works for you, and receive instant confirmation — all in under a minute.',
+    desc : 'Say goodbye to endless phone calls and waiting room delays. View real-time availability for any specialist, pick a time that works for you, and receive instant confirmation, all in under a minute.',
     bullets : [
       'Same-day & next-day appointments',
       'Instant confirmation & reminders',
@@ -71,7 +71,7 @@ const PATIENT_SERVICES = [
   {
     img  : ASSETS.m2,
     title: 'Video Consultation',
-    desc : 'Connect face-to-face with your doctor from the comfort of your home, office, or anywhere in between. Our secure HD video platform is built for healthcare — end-to-end encrypted and low-bandwidth optimized.',
+    desc : 'Connect face-to-face with your doctor from the comfort of your home, office, or anywhere in between. Our secure HD video platform is built for healthcare with end-to-end encryption and low-bandwidth optimization.',
     bullets : [
       'End-to-end encrypted video calls',
       'Works on low-bandwidth connections',
@@ -115,7 +115,7 @@ const DOCTOR_SERVICES = [
     img  : '/content/cc.jpeg',
     imgFit: 'contain',
     title: 'Integrated Video Calls',
-    desc : 'Launch HD video consultations directly from your dashboard with a single click — no third-party accounts, downloads, or plugins required. Every session is encrypted end-to-end.',
+    desc : 'Launch HD video consultations directly from your dashboard with a single click. No third-party accounts, downloads, or plugins required. Every session is encrypted end-to-end.',
     bullets : [
       'One-click launch from dashboard',
       'End-to-end encrypted sessions',
@@ -128,7 +128,7 @@ const DOCTOR_SERVICES = [
   {
     img  : '/content/ee.jpeg',
     title: 'Auto Meeting Notes',
-    desc : 'Every consultation is automatically transcribed in real time and processed into a structured SOAP-format clinical note — assessment, plan, prescriptions, and follow-ups.',
+    desc : 'Every consultation is automatically transcribed in real time and processed into a structured SOAP-format clinical note with assessment, plan, prescriptions, and follow-ups.',
     bullets : [
       'Real-time transcription during calls',
       'Structured SOAP-format summaries',
@@ -142,7 +142,7 @@ const DOCTOR_SERVICES = [
     img  : '/content/zz.jpeg',
     imgFit: 'contain',
     title: 'Patient History at a Glance',
-    desc : 'Access complete, longitudinal patient histories that span every consultation — including AI summaries, recordings, notes, medications, and lab referrals for full clinical context.',
+    desc : 'Access complete, longitudinal patient histories that span every consultation, including AI summaries, recordings, notes, medications, and lab referrals for full clinical context.',
     bullets : [
       'Complete multi-visit patient timeline',
       'AI summaries & video recordings',
@@ -162,7 +162,7 @@ const TESTIMONIALS = [
     avatar: 'S',
     avatarImg: '/content/g1.jfif',
     stars : 5,
-    text  : '"The AI instantly identified my symptoms and suggested a specialist. I had a video consultation booked within minutes — something that would have taken weeks before."',
+    text  : '"The AI instantly identified my symptoms and suggested a specialist. I had a video consultation booked within minutes. Something that would have taken weeks before."',
   },
   {
     name  : 'Dr. Kamran A.',
@@ -186,7 +186,7 @@ const TESTIMONIALS = [
     avatar: 'A',
     avatarImg: '/content/g3.jfif',
     stars : 5,
-    text  : '"The auto-generated meeting notes are a game changer. Every consultation is documented automatically — no more manual record keeping after long shifts."',
+    text  : '"The auto-generated meeting notes are a game changer. Every consultation is documented automatically with no more manual record keeping after long shifts."',
   },
   {
     name  : 'Usman T.',
@@ -194,7 +194,7 @@ const TESTIMONIALS = [
     avatar: 'U',
     avatarImg: '/content/profile3.jfif',
     stars : 5,
-    text  : '"I was worried about the accuracy of AI medical advice, but MediCare uses verified medical textbooks — not random internet content. The doctor confirmed the AI\'s assessment was spot on."',
+    text  : '"I was worried about the accuracy of AI medical advice, but MediCare uses verified medical textbooks, not random internet content. The doctor confirmed the AI\'s assessment was spot on."',
   },
   {
     name  : 'Dr. Zara H.',
@@ -210,7 +210,7 @@ const TESTIMONIALS = [
     avatar: 'B',
     avatarImg: '/content/profile5.jfif',
     stars : 5,
-    text  : '"The consultation notes are sent to me right after the video call. I can share them with family members who care for me — incredibly helpful for ongoing treatment."',
+    text  : '"The consultation notes are sent to me right after the video call. I can share them with family members who care for me. Incredibly helpful for ongoing treatment."',
   },
   {
     name  : 'Dr. Hassan Q.',
@@ -362,7 +362,7 @@ const Home = () => {
         .anim-d3      { animation-delay:.34s; }
         .anim-d4      { animation-delay:.46s; }
 
-        /* Testimonial scroll — card height ≈ 160px × 4 cards = 640px per set */
+        /* Testimonial scroll - card height ≈ 160px × 4 cards = 640px per set */
         @keyframes scrollUp {
           0%   { transform: translateY(0); }
           100% { transform: translateY(-50%); }
@@ -459,7 +459,7 @@ const Home = () => {
               </h1>
 
               <p className="text-lg text-white/65 leading-relaxed max-w-[500px] mb-10">
-                From AI symptom analysis to verified specialist video consultations — MediCare bridges the healthcare gap in developing regions with evidence-based RAG technology and verified medical knowledge.
+                From AI symptom analysis to verified specialist video consultations, MediCare bridges the healthcare gap in developing regions with evidence-based RAG technology and verified medical knowledge.
               </p>
 
               <div className="flex flex-wrap gap-4">
@@ -563,7 +563,7 @@ const Home = () => {
               How It Works
             </h2>
             <p className="text-slate-500 mt-5 max-w-2xl mx-auto text-base leading-relaxed">
-              From symptom analysis to specialist consultation — get quality healthcare in four simple steps
+              From symptom analysis to specialist consultation, get quality healthcare in four simple steps
             </p>
           </div>
 
@@ -579,7 +579,7 @@ const Home = () => {
                   </svg>
                 ),
                 title: 'Describe Symptoms',
-                desc: 'Chat with our AI assistant in plain language — just as you would talk to a doctor.',
+                desc: 'Chat with our AI assistant in plain language, just as you would talk to a doctor.',
                 delay: '0s'
               },
               {
@@ -692,7 +692,7 @@ const Home = () => {
           <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-start">
             {/* Left: service tabs + content */}
             <div>
-              {/* Content area — fades in on service change */}
+              {/* Content area - fades in on service change */}
               <div key={activeIdx} className="anim-fadeup">
                 <h3 className="text-2xl sm:text-3xl font-extrabold text-[#0A2540] leading-tight">
                   {activeService.title}
