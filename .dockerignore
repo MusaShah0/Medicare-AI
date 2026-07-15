@@ -1,0 +1,31 @@
+# ── Global ignores ────────────────────────────────────────────────────────────
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+**/*.pyc
+**/.DS_Store
+**/Thumbs.db
+
+# ── Frontend ──────────────────────────────────────────────────────────────────
+FrontEnd/dist
+FrontEnd/.vite
+
+# ── Backend ───────────────────────────────────────────────────────────────────
+BackEnd/uploads/*
+!BackEnd/uploads/.gitkeep
+
+# ── AI ────────────────────────────────────────────────────────────────────────
+AI/vectorstore/db_faiss
+AI/models
+AI/__pycache__
+AI/evaluation
+
+# ── Git / IDE ─────────────────────────────────────────────────────────────────
+.git
+.gitignore
+.claude
+*.md
+docs/

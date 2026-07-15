@@ -1,0 +1,121 @@
+version: '3.9'
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  MediCare AI — Docker Compose
+#  Services: frontend · backend · ai-service · mongodb
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── MongoDB ─────────────────────────────────────────────────────────────────
+  mongodb:
+    image: mongo:7.0
+    container_name: medicare_mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: MediCare
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - medicare_network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ── Backend (Express 5 + Mongoose) ──────────────────────────────────────────
+  backend:
+    build:
+      context: ./BackEnd
+      dockerfile: Dockerfile
+    container_name: medicare_backend
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+      MONGO_URI: mongodb://mongodb:27017/MediCare
+      JWT_SECRET: ${JWT_SECRET}
+      P_JWT_SECRET: ${P_JWT_SECRET}
+      VIDEOSDK_API_KEY: ${VIDEOSDK_API_KEY}
+      VIDEOSDK_SECRET: ${VIDEOSDK_SECRET}
+      AI_SERVICE_URL: http://ai-service:8000
+      NODE_ENV: production
+    volumes:
+      - backend_uploads:/app/uploads
+      - backend_public:/app/public
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - medicare_network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/health', r => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ── AI Service (FastAPI + LangChain RAG + Groq) ──────────────────────────────
+  ai-service:
+    build:
+      context: ./AI
+      dockerfile: Dockerfile
+    container_name: medicare_ai
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      HF_TOKEN: ${HF_TOKEN}
+      PYTHONDONTWRITEBYTECODE: 1
+      PYTHONUNBUFFERED: 1
+    volumes:
+      - ai_vectorstore:/app/vectorstore
+      - ai_models:/app/models
+    networks:
+      - medicare_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 20s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ── Frontend (React 19 + Vite — Nginx) ──────────────────────────────────────
+  frontend:
+    build:
+      context: ./FrontEnd
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:4000}
+    container_name: medicare_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - medicare_network
+
+# ── Named Volumes ──────────────────────────────────────────────────────────────
+volumes:
+  mongo_data:
+    driver: local
+  backend_uploads:
+    driver: local
+  backend_public:
+    driver: local
+  ai_vectorstore:
+    driver: local
+  ai_models:
+    driver: local
+
+# ── Network ────────────────────────────────────────────────────────────────────
+networks:
+  medicare_network:
+    driver: bridge

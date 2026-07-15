@@ -1,3 +1,126 @@
+# Environment Variables (exclude all .env files)
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+*.env
 AI/.env
-BackEnd/public
 BackEnd/.env
+FrontEnd/.env
+
+# But include .env.example files for guidance
+!.env.example
+!AI/.env.example
+!BackEnd/.env.example
+!FrontEnd/.env.example
+
+# Dependencies
+node_modules/
+BackEnd/node_modules/
+FrontEnd/node_modules/
+AI/.venv/
+AI/__pycache__/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Build outputs
+dist/
+build/
+FrontEnd/dist/
+*.egg-info/
+
+# IDE and Editor files
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.sublime-project
+*.sublime-workspace
+
+# Kiro/Claude AI files
+.kiro/
+.claude/
+.vscode/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Testing
+coverage/
+*.cover
+.nyc_output
+.jest/
+
+# Uploads and Media (except gitkeep)
+BackEnd/public/pictures/*
+!BackEnd/public/pictures/.gitkeep
+BackEnd/uploads/audio/*.mp4
+BackEnd/uploads/audio/*.mp3
+BackEnd/uploads/audio/*.wav
+!BackEnd/uploads/audio/.gitkeep
+BackEnd/uploads/notes/*.pdf
+!BackEnd/uploads/notes/.gitkeep
+
+# AI Model files (too large for git)
+AI/models/
+AI/vectorstore/db_faiss/
+
+# Large PDF files (consider using Git LFS)
+# AI/data/*.pdf
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Package lock files (optional - uncomment if you want to ignore)
+# package-lock.json
+# yarn.lock
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# Research and documentation (not tracked in version control)
+Research Paper/
+docs/
+Content/
+context.md
+data2.txt
+project.md
+AGENTS.md
+CLAUDE.md
+IMPLEMENTATION_COMPLETE.md
+design.md
+videocall.md
+*.docx
+*.doc
+
+# Local configuration
+opencode.json
+
+# Stitch AI MCP
+stitch-ai-mcp/
+
+# Test files (if you want to exclude)
+tests/

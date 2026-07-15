@@ -1,21 +1,40 @@
 const jwt = require("jsonwebtoken");
 
-// Get these from your VideoSDK Console
-const API_KEY = "459d9d71-647a-4c6e-a2c2-b50e0a856c9f";
-const SECRET_KEY = "5144cb66d6122755f853ec9338177530758ab24fff2a9523e42910e0c22f62ec";
+const API_KEY = process.env.VIDEOSDK_API_KEY;
+const SECRET_KEY = process.env.VIDEOSDK_SECRET_KEY;
 
+/**
+ * Generates a participant token — used for joining rooms from the browser.
+ * permissions: allow_join + allow_mod
+ */
 const generateToken = () => {
-  const options = { 
-    expiresIn: "120m", 
-    algorithm: "HS256" 
-  };
+  // Debug logging
+  console.log('[VideoSDK] API_KEY:', API_KEY ? `${API_KEY.substring(0, 10)}...` : 'UNDEFINED');
+  console.log('[VideoSDK] SECRET_KEY:', SECRET_KEY ? `${SECRET_KEY.substring(0, 10)}...` : 'UNDEFINED');
+  console.log('[VideoSDK] SECRET_KEY type:', typeof SECRET_KEY);
+  console.log('[VideoSDK] SECRET_KEY length:', SECRET_KEY ? SECRET_KEY.length : 0);
+  
+  if (!SECRET_KEY) {
+    throw new Error('VIDEOSDK_SECRET_KEY is not defined in environment variables');
+  }
   
   const payload = {
     apikey: API_KEY,
-    permissions: ["allow_join", "allow_mod"], // Permissions for the user
+    permissions: ["allow_join", "allow_mod"],
   };
-
-  return jwt.sign(payload, SECRET_KEY, options);
+  return jwt.sign(payload, SECRET_KEY, { expiresIn: "120m", algorithm: "HS256" });
 };
 
-module.exports = { generateToken, API_KEY };
+/**
+ * Generates a server-side token — used for REST API calls (recording start/stop, room creation).
+ * permissions: allow_join + allow_mod + allow_stream (required for recording API)
+ */
+const generateServerToken = () => {
+  const payload = {
+    apikey: API_KEY,
+    permissions: ["allow_join", "allow_mod", "allow_stream"],
+  };
+  return jwt.sign(payload, SECRET_KEY, { expiresIn: "120m", algorithm: "HS256" });
+};
+
+module.exports = { generateToken, generateServerToken, API_KEY };

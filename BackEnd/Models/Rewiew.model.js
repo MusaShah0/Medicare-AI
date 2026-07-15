@@ -2,19 +2,33 @@ const mongoose = require('mongoose');
 
 const ReviewSchema = mongoose.Schema({
     doctor_id: {
-        type: mongoose.Schema.Types.ObjectId, // Fixed: Removed trailing dot
-        ref: "Doctor"
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Doctor',
+        required: true
     },
     patient_id: {
-        type: mongoose.Schema.Types.ObjectId, // Fixed: Added missing type
-        ref: "Patient"
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Patient',
+        required: true
+    },
+    appointment_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Appoitment',
+        required: true,
+        unique: true   // one review per completed appointment
+    },
+    rating: {
+        type: Number,
+        required: true,
+        min: 1,
+        max: 5
     },
     review: {
-        type: String
+        type: String,
+        trim: true,
+        maxlength: 1000
     }
-}, { timestamps: true }); // Added timestamps to show when the review was written
+}, { timestamps: true });
 
-
-
-const ReviewModel = mongoose.model("Review", ReviewSchema);
+const ReviewModel = mongoose.model('Review', ReviewSchema);
 module.exports = ReviewModel;

@@ -1,429 +1,898 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { WorldMap } from '../components/ui/map';
 
+
+
+// ─── Colour tokens (3-colour rule) ───────────────────────────────────────────
+// Navy  : #0A2540   - authority / trust
+// Teal  : #00B4A0   - health / action
+// Chalk : #F4F7F9   - background / space
+
+const ASSETS = {
+  logo : '/content/logo_transparent.png',
+  d1   : '/content/docn.jpeg',
+  d2   : '/content/d2.jpg',
+  d3   : '/content/bb.jpeg',
+  d4   : '/content/d4.jpeg',
+  d5   : '/content/d5.jpeg',
+  d9   : '/content/d2_processed.jpg',
+  dco12: '/content/dco12.jpeg',
+  m1   : '/content/m1.jpg',
+  m2   : '/content/m2.jpg',
+  c1   : '/content/c1.jpg',
+  c2   : '/content/c2.jpg',
+};
+
+// ─── Services ────────────────────────────────────────────────────────────────
+const PATIENT_SERVICES = [
+  {
+    img     : ASSETS.c1,
+    imgPos  : 'center center',
+    title   : 'AI Symptom Analysis',
+    desc    : 'Describe your symptoms in plain language, just as you would to a doctor. Our RAG-powered AI engine instantly cross-references verified medical textbooks and clinical guidelines to deliver evidence-based insights, not generic web guesses.',
+    bullets : [
+      'Multi-symptom analysis in seconds',
+      'Evidence-based possible conditions',
+      'Urgency assessment & guidance',
+      'Seamless doctor referral if needed',
+    ],
+    cta     : 'Chat with AI',
+    href    : '/patient/signup',
+  },
+  {
+    img     : ASSETS.d1,
+    imgPos  : 'center 42%',
+    title   : 'Find the Right Doctor',
+    desc    : 'Browse a curated network of verified healthcare professionals across every major specialty. Use intelligent filters to narrow by expertise, location, availability, and patient ratings.',
+    bullets : [
+      'Verified professionals across all specialties',
+      'Filter by expertise, location & ratings',
+      'Real-time availability & scheduling',
+      'Book with complete confidence',
+    ],
+    cta     : 'Browse Doctors',
+    href    : '/patient/signup',
+  },
+  {
+    img  : ASSETS.m1,
+    imgFit: 'contain',
+    title: 'Book in Seconds',
+    desc : 'Say goodbye to endless phone calls and waiting room delays. View real-time availability for any specialist, pick a time that works for you, and receive instant confirmation, all in under a minute.',
+    bullets : [
+      'Same-day & next-day appointments',
+      'Instant confirmation & reminders',
+      'Calendar sync across devices',
+      'Cancel or reschedule with one tap',
+    ],
+    cta  : 'Book Now',
+    href : '/patient/signup',
+  },
+  {
+    img  : ASSETS.m2,
+    title: 'Video Consultation',
+    desc : 'Connect face-to-face with your doctor from the comfort of your home, office, or anywhere in between. Our secure HD video platform is built for healthcare with end-to-end encryption and low-bandwidth optimization.',
+    bullets : [
+      'End-to-end encrypted video calls',
+      'Works on low-bandwidth connections',
+      'No downloads or account setup needed',
+      'Built-in chat & screen sharing',
+    ],
+    cta  : 'Get Started',
+    href : '/patient/signup',
+  },
+  {
+    img  : '/content/jj.jpeg',
+    title: 'Auto-Generated Notes',
+    desc : 'Every video consultation is automatically transcribed and summarized into a clear, structured health report delivered to your secure portal immediately after your session ends.',
+    bullets : [
+      'Auto-transcribed consultation records',
+      'Structured diagnosis & medication summary',
+      'Instant delivery to your health portal',
+      'One-click share with family or GP',
+    ],
+    cta  : 'Learn More',
+    href : '/patient/signup',
+  },
+];
+
+const DOCTOR_SERVICES = [
+  {
+    img  : '/content/xx.jpeg',
+    imgPos: 'center center',
+    title: 'Smart Appointment Dashboard',
+    desc : 'Manage your entire practice from a single, intuitive dashboard. View upcoming, ongoing, and completed appointments at a glance with color-coded status indicators and AI pre-assessment summaries.',
+    bullets : [
+      'Full appointment lifecycle overview',
+      'AI pre-assessment before every call',
+      'Color-coded status indicators',
+      'Patient history at your fingertips',
+    ],
+    cta  : 'See Dashboard',
+    href : '/doctor/signup',
+  },
+  {
+    img  : '/content/cc.jpeg',
+    imgFit: 'contain',
+    title: 'Integrated Video Calls',
+    desc : 'Launch HD video consultations directly from your dashboard with a single click. No third-party accounts, downloads, or plugins required. Every session is encrypted end-to-end.',
+    bullets : [
+      'One-click launch from dashboard',
+      'End-to-end encrypted sessions',
+      'Consent-based call recording',
+      'Screen sharing & digital whiteboard',
+    ],
+    cta  : 'Explore',
+    href : '/doctor/signup',
+  },
+  {
+    img  : '/content/ee.jpeg',
+    title: 'Auto Meeting Notes',
+    desc : 'Every consultation is automatically transcribed in real time and processed into a structured SOAP-format clinical note with assessment, plan, prescriptions, and follow-ups.',
+    bullets : [
+      'Real-time transcription during calls',
+      'Structured SOAP-format summaries',
+      'Shared instantly with patient portal',
+      'Zero manual note-taking required',
+    ],
+    cta  : 'Learn More',
+    href : '/doctor/signup',
+  },
+  {
+    img  : '/content/zz.jpeg',
+    imgFit: 'contain',
+    title: 'Patient History at a Glance',
+    desc : 'Access complete, longitudinal patient histories that span every consultation, including AI summaries, recordings, notes, medications, and lab referrals for full clinical context.',
+    bullets : [
+      'Complete multi-visit patient timeline',
+      'AI summaries & video recordings',
+      'Medication & lab referral history',
+      'Continuity across every follow-up',
+    ],
+    cta  : 'Get Started',
+    href : '/doctor/signup',
+  },
+];
+
+// ─── Testimonials data ────────────────────────────────────────────────────────
+const TESTIMONIALS = [
+  {
+    name  : 'Sarah M.',
+    role  : 'Patient · Lahore',
+    avatar: 'S',
+    avatarImg: '/content/g1.jfif',
+    stars : 5,
+    text  : '"The AI instantly identified my symptoms and suggested a specialist. I had a video consultation booked within minutes. Something that would have taken weeks before."',
+  },
+  {
+    name  : 'Dr. Kamran A.',
+    role  : 'Cardiologist · Karachi',
+    avatar: 'K',
+    avatarImg: '/content/profile2.jfif',
+    stars : 5,
+    text  : '"MediCare AI\'s scheduling system is flawless. No double-bookings, and the pre-consultation AI summaries save me at least 10 minutes per patient."',
+  },
+  {
+    name  : 'Fatima R.',
+    role  : 'Patient · Islamabad',
+    avatar: 'F',
+    avatarImg: '/content/g2.jfif',
+    stars : 5,
+    text  : '"I live in a rural area and getting medical advice used to mean a 3-hour journey. Now I get evidence-based guidance on my phone and see a doctor via video."',
+  },
+  {
+    name  : 'Dr. Ayesha N.',
+    role  : 'General Physician · Peshawar',
+    avatar: 'A',
+    avatarImg: '/content/g3.jfif',
+    stars : 5,
+    text  : '"The auto-generated meeting notes are a game changer. Every consultation is documented automatically with no more manual record keeping after long shifts."',
+  },
+  {
+    name  : 'Usman T.',
+    role  : 'Patient · Faisalabad',
+    avatar: 'U',
+    avatarImg: '/content/profile3.jfif',
+    stars : 5,
+    text  : '"I was worried about the accuracy of AI medical advice, but MediCare uses verified medical textbooks, not random internet content. The doctor confirmed the AI\'s assessment was spot on."',
+  },
+  {
+    name  : 'Dr. Zara H.',
+    role  : 'Neurologist · Lahore',
+    avatar: 'Z',
+    avatarImg: '/content/profile4.jfif',
+    stars : 5,
+    text  : '"My patient volume doubled after joining MediCare. Patients from cities I could never reach before now book with me for video consultations."',
+  },
+  {
+    name  : 'Bilal K.',
+    role  : 'Patient · Quetta',
+    avatar: 'B',
+    avatarImg: '/content/profile5.jfif',
+    stars : 5,
+    text  : '"The consultation notes are sent to me right after the video call. I can share them with family members who care for me. Incredibly helpful for ongoing treatment."',
+  },
+  {
+    name  : 'Dr. Hassan Q.',
+    role  : 'Dermatologist · Multan',
+    avatar: 'H',
+    avatarImg: '/content/p1.jfif',
+    stars : 5,
+    text  : '"Patients come to consultations already knowing their likely condition from the AI. It makes conversations more focused and allows me to spend time on treatment planning."',
+  },
+];
+
+// Split into two columns for the scrolling animation
+const COL_A = TESTIMONIALS.slice(0, 4);
+const COL_B = TESTIMONIALS.slice(4, 8);
+
+// ─── Star icons ───────────────────────────────────────────────────────────────
+function Stars({ n = 5 }) {
+  return (
+    <div className="flex gap-0.5 mb-3">
+      {Array.from({ length: n }).map((_, i) => (
+        <svg key={i} className="w-4 h-4 text-amber-400 fill-amber-400" viewBox="0 0 20 20">
+          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+        </svg>
+      ))}
+    </div>
+  );
+}
+
+// ─── Single testimonial card ──────────────────────────────────────────────────
+function TestiCard({ item }) {
+  return (
+    <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm mb-4 flex-shrink-0">
+      <Stars n={item.stars} />
+      <p className="text-sm text-slate-600 leading-relaxed mb-4">{item.text}</p>
+      <div className="flex items-center gap-3">
+        {item.avatarImg ? (
+          <img src={item.avatarImg} alt={item.name} className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+        ) : (
+          <div className="w-9 h-9 rounded-full bg-[#0A2540] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+            {item.avatar}
+          </div>
+        )}
+        <div>
+          <p className="text-sm font-bold text-[#0A2540]">{item.name}</p>
+          <p className="text-xs text-slate-400">{item.role}</p>
+                </div>
+              </div>
+            </div>
+  );
+}
+
+// ─── Scrolling column ─────────────────────────────────────────────────────────
+// direction: 'up' | 'down'
+function ScrollColumn({ items, direction }) {
+  const doubled = [...items, ...items]; // seamless loop
+  return (
+    <div className="overflow-hidden h-[520px] relative">
+      {/* Fade edges */}
+      <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-[#F4F7F9] to-transparent z-10 pointer-events-none" />
+      <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#F4F7F9] to-transparent z-10 pointer-events-none" />
+
+      <div
+        className={direction === 'up' ? 'scroll-up' : 'scroll-down'}
+        style={{ display: 'flex', flexDirection: 'column' }}
+      >
+        {doubled.map((item, i) => (
+          <TestiCard key={i} item={item} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+
+// ─── How-it-works SVG icons ───────────────────────────────────────────────────
+const HOW_ICONS = [
+  // Chat / message
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
+    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+    <path d="M8 10h.01M12 10h.01M16 10h.01" strokeWidth="2.5" />
+  </svg>,
+  // Brain / AI
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
+    <path d="M9.5 2a2.5 2.5 0 00-2.45 2H6a3 3 0 00-3 3 3 3 0 001.5 2.6V11a3 3 0 003 3h.5v1.5a1.5 1.5 0 003 0V14h.5a3 3 0 003-3v-1.4A3 3 0 0016 7a3 3 0 00-3-3h-1.05A2.5 2.5 0 009.5 2z" />
+    <path d="M6.5 9.5h1M16.5 9.5h1M9.5 12.5v1M14.5 12.5v1" strokeWidth="2" />
+  </svg>,
+  // Stethoscope
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
+    <path d="M4.5 6.375a4.125 4.125 0 008.25 0" />
+    <path d="M8.625 6.375V10.5a5.625 5.625 0 0011.25 0v-1.125" />
+    <circle cx="19.875" cy="8.25" r="1.125" />
+    <path d="M8.625 10.5a3.375 3.375 0 006.75 0" />
+  </svg>,
+  // Clipboard / notes
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
+    <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+    <rect x="9" y="3" width="6" height="4" rx="1" />
+    <path d="M9 12h6M9 16h4" />
+  </svg>,
+];
+
+// ─── Main component ───────────────────────────────────────────────────────────
 const Home = () => {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
+  const [scrolled,    setScrolled]    = useState(false);
+  const [mobileOpen,  setMobileOpen]  = useState(false);
+  const [bgLoading] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [serviceTab, setServiceTab] = useState('patient');
 
-  // Handle scroll for navbar styling
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    const fn = () => setScrolled(window.scrollY > 24);
+    window.addEventListener('scroll', fn, { passive: true });
+    return () => window.removeEventListener('scroll', fn);
   }, []);
 
+  const carouselServices = serviceTab === 'patient' ? PATIENT_SERVICES : DOCTOR_SERVICES;
+  const activeService = carouselServices[activeIdx];
+
+  useEffect(() => {
+    if (paused) return;
+    const t = setInterval(() => {
+      const services = serviceTab === 'patient' ? PATIENT_SERVICES : DOCTOR_SERVICES;
+      if (activeIdx >= services.length - 1) {
+        setServiceTab(serviceTab === 'patient' ? 'doctor' : 'patient');
+        setActiveIdx(0);
+      } else {
+        setActiveIdx(prev => prev + 1);
+      }
+    }, 4000);
+    return () => clearInterval(t);
+  }, [paused, serviceTab, activeIdx]);
+
   return (
-    <div className="font-sans text-slate-800 bg-slate-50 selection:bg-teal-500 selection:text-white overflow-x-hidden relative">
-      
-      {/* --- CUSTOM CSS FOR ANIMATIONS --- */}
+    <div className="font-sans text-slate-800 bg-[#F4F7F9] overflow-x-hidden">
+
+      {/* ── Global animation styles ── */}
       <style>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-15px); }
+        html { scroll-behavior: smooth; }
+
+        @keyframes fadeUp {
+          from { opacity:0; transform:translateY(20px); }
+          to   { opacity:1; transform:translateY(0);    }
         }
-        @keyframes float-delayed {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-10px); }
+        .anim-fadeup  { animation: fadeUp .65s ease both; }
+        .anim-d1      { animation-delay:.1s; }
+        .anim-d2      { animation-delay:.22s; }
+        .anim-d3      { animation-delay:.34s; }
+        .anim-d4      { animation-delay:.46s; }
+
+        /* Testimonial scroll - card height ≈ 160px × 4 cards = 640px per set */
+        @keyframes scrollUp {
+          0%   { transform: translateY(0); }
+          100% { transform: translateY(-50%); }
         }
-        @keyframes pulse-ring {
-          0% { transform: scale(0.8); opacity: 0.5; }
-          100% { transform: scale(2); opacity: 0; }
+        @keyframes scrollDown {
+          0%   { transform: translateY(-50%); }
+          100% { transform: translateY(0); }
         }
-        .animate-float { animation: float 6s ease-in-out infinite; }
-        .animate-float-delayed { animation: float-delayed 5s ease-in-out infinite; }
-        .animate-pulse-ring { animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        .glass-panel {
-          background: rgba(255, 255, 255, 0.7);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: 1px solid rgba(255, 255, 255, 0.5);
+        .scroll-up   { animation: scrollUp   28s linear infinite; }
+        .scroll-down { animation: scrollDown 28s linear infinite; }
+        .scroll-up:hover,
+        .scroll-down:hover { animation-play-state: paused; }
+
+        @keyframes mockupDot {
+          0%, 28%   { opacity: 1; background: #00B4A0; }
+          33.33%    { opacity: 0.15; background: white; }
+          100%      { opacity: 0.15; background: white; }
+        }
+        .animate-mockup-dot {
+          animation: mockupDot 9s ease-in-out infinite;
+        }
+
+        @keyframes fadeSlideIn {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
 
-      {/* --- NAVBAR --- */}
-      <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${scrolled ? 'bg-white/80 backdrop-blur-md shadow-sm border-b border-slate-200' : 'bg-transparent'}`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-20 items-center">
-            
-            {/* Logo */}
-            <Link to="/" className="flex items-center gap-2 group">
-              <div className="relative flex items-center justify-center w-10 h-10 bg-gradient-to-tr from-teal-600 to-emerald-500 rounded-xl text-white shadow-lg shadow-teal-500/30 group-hover:scale-105 transition duration-300">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                </svg>
-              </div>
-              <span className="text-2xl font-bold tracking-tight text-slate-900">
-                Medicare<span className="text-teal-600">AI</span>
-              </span>
-            </Link>
+      {/* ════════════════════════════════ NAVBAR ═════════════════════════════ */}
+      <nav className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
+        scrolled ? 'bg-white/90 backdrop-blur-md shadow-sm border-b border-slate-100' : 'bg-transparent'
+      }`}>
+        <div className="max-w-7xl mx-auto px-5 sm:px-8 flex items-center justify-between h-[72px]">
 
-            {/* Desktop Links */}
-            <div className="hidden md:flex items-center space-x-8">
-              <a href="#how-it-works" className="text-sm font-medium text-slate-600 hover:text-teal-600 transition">How it Works</a>
-              <a href="#features" className="text-sm font-medium text-slate-600 hover:text-teal-600 transition">Features</a>
-              
-              <div className="flex items-center gap-4 pl-6 border-l border-slate-300/50">
-                <Link to="/login" className="text-sm font-bold text-slate-700 hover:text-teal-600 transition">
-                  Login
-                </Link>
-                <Link to="/doctor/signup" className="px-5 py-2.5 rounded-full bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0">
-                  Doctor Access
-                </Link>
-              </div>
-            </div>
+          <Link to="/" className="flex items-center gap-1.5 group">
+            <span className={`text-[22px] font-extrabold tracking-tight transition-colors ${scrolled ? 'text-[#0A2540]' : 'text-white'}`}>
+              Medicare<span className="text-[#00B4A0]">AI</span>
+            </span>
+          </Link>
 
-            {/* Mobile Menu Button */}
-            <div className="md:hidden flex items-center">
-              <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-slate-600 hover:text-teal-600 p-2">
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={isMobileMenuOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"} />
-                </svg>
-              </button>
+          <div className="hidden md:flex items-center gap-8">
+            {[['#services','Services'],['#how-it-works','How It Works']].map(([href, label]) => (
+              <a key={href} href={href}
+                className={`text-sm font-semibold transition hover:text-[#00B4A0] ${scrolled ? 'text-slate-600' : 'text-white/90'}`}>
+                {label}
+              </a>
+            ))}
+            <div className="flex items-center gap-3 pl-6 border-l border-white/20">
+              <Link to="/login" className={`text-sm font-bold transition hover:text-[#00B4A0] ${scrolled ? 'text-slate-700' : 'text-white'}`}>Login</Link>
+              <Link to="/patient/signup" className="px-5 py-2.5 rounded-xl bg-[#00B4A0] text-white text-sm font-bold shadow-lg shadow-teal-500/20 hover:bg-teal-400 transition hover:-translate-y-0.5">
+                Get Started
+              </Link>
             </div>
           </div>
+
+          <button className="md:hidden p-2 rounded-lg" onClick={() => setMobileOpen(o => !o)} aria-label="Toggle menu">
+            <svg className={`w-6 h-6 ${scrolled ? 'text-slate-700' : 'text-white'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                d={mobileOpen ? 'M6 18L18 6M6 6l12 12' : 'M4 6h16M4 12h16M4 18h16'} />
+            </svg>
+          </button>
         </div>
 
-        {/* Mobile Menu Dropdown */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden absolute top-20 w-full bg-white border-b border-slate-100 p-6 shadow-2xl flex flex-col space-y-4 animate-fade-in-down z-40">
-             <a href="#how-it-works" onClick={() => setIsMobileMenuOpen(false)} className="text-lg font-medium text-slate-600">How it Works</a>
-             <a href="#features" onClick={() => setIsMobileMenuOpen(false)} className="text-lg font-medium text-slate-600">Features</a>
-             <hr className="border-slate-100"/>
-             <Link to="/login" className="text-lg font-medium text-teal-600">Login as Patient</Link>
-             <Link to="/doctor/signup" className="block text-center w-full bg-slate-900 text-white py-3 rounded-xl font-bold">Doctor Portal</Link>
+        {mobileOpen && (
+          <div className="md:hidden bg-white border-t border-slate-100 px-6 py-5 flex flex-col gap-4 shadow-xl">
+            <a href="#services"     onClick={() => setMobileOpen(false)} className="text-base font-semibold text-slate-700">Services</a>
+            <a href="#how-it-works" onClick={() => setMobileOpen(false)} className="text-base font-semibold text-slate-700">How It Works</a>
+            <hr className="border-slate-100" />
+            <Link to="/login"          className="text-base font-bold text-[#00B4A0]">Login</Link>
+            <Link to="/patient/signup" className="block text-center bg-[#0A2540] text-white py-3 rounded-xl font-bold text-sm">Get Started Free</Link>
           </div>
         )}
       </nav>
 
-      {/* --- HERO SECTION --- */}
-      <header className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
-        
-        {/* Dynamic Background Elements */}
-        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-[600px] h-[600px] bg-gradient-to-b from-teal-100/40 to-emerald-100/40 rounded-full blur-3xl opacity-70"></div>
-        <div className="absolute top-1/2 left-0 -ml-20 w-[500px] h-[500px] bg-blue-100/40 rounded-full blur-3xl opacity-60"></div>
-        
-        {/* Grid Pattern Overlay */}
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+      {/* ═══════════════════════════════ HERO ════════════════════════════════ */}
+      <header className="relative min-h-screen flex items-center bg-[#0A2540] overflow-hidden">
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-            
-            {/* Left: Text Content */}
-            <div className="text-center lg:text-left order-2 lg:order-1">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-teal-100 shadow-sm text-teal-700 text-xs font-bold uppercase tracking-wider mb-8 hover:scale-105 transition-transform cursor-default">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
-                </span>
-                Next-Gen Healthcare AI
-              </div>
-              
-              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-slate-900 leading-[1.1] mb-6 tracking-tight">
-                Healthcare that <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-600">
-                  Understands You.
-                </span>
+        {/* Background glow blobs */}
+        <div className="absolute top-0 right-0 w-[700px] h-[700px] bg-[#00B4A0]/10 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-teal-900/30 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute inset-0 opacity-[0.04] pointer-events-none"
+          style={{ backgroundImage:'linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)', backgroundSize:'48px 48px' }} />
+
+        <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 pt-28 pb-20 w-full">
+          <div className="grid lg:grid-cols-2 gap-14 items-center">
+
+            {/* ── Left: text ── */}
+            <div className="anim-fadeup">
+              <h1 className="text-4xl sm:text-5xl lg:text-[56px] font-extrabold text-white leading-[1.1] tracking-tight mb-6">
+                An Intelligent<br />
+                <span className="text-[#00B4A0]">Health Support</span><br />
+                System
               </h1>
-              
-              <p className="text-lg text-slate-600 mb-8 leading-relaxed max-w-lg mx-auto lg:mx-0">
-                Stop Googling symptoms. Chat with our intelligent medical AI to get accurate assessments and instantly book the right specialist.
+
+              <p className="text-lg text-white/65 leading-relaxed max-w-[500px] mb-10">
+                From AI symptom analysis to verified specialist video consultations, MediCare bridges the healthcare gap in developing regions with evidence-based RAG technology and verified medical knowledge.
               </p>
-              
-              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                <Link to="/patient/signup" className="group px-8 py-4 rounded-xl bg-teal-600 text-white font-bold text-lg shadow-xl shadow-teal-500/30 hover:bg-teal-700 hover:-translate-y-1 transition-all duration-300 flex items-center justify-center gap-3">
-                  Check Symptoms
-                  <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+
+              <div className="flex flex-wrap gap-4">
+                <Link to="/patient/signup"
+                  className="px-8 py-4 rounded-xl bg-[#00B4A0] text-white font-bold text-sm shadow-xl shadow-teal-500/30 hover:bg-teal-400 transition hover:-translate-y-0.5">
+                  Start as Patient
                 </Link>
-                <Link to="/doctors" className="px-8 py-4 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold text-lg hover:bg-slate-50 hover:border-slate-300 transition-all duration-300 shadow-sm hover:shadow-md">
-                  Browse Doctors
+                <Link to="/doctor/signup"
+                  className="px-8 py-4 rounded-xl border border-white/25 text-white font-bold text-sm hover:bg-white/10 transition">
+                  Join as Doctor
                 </Link>
               </div>
 
-              {/* Trust Indicators */}
-              <div className="mt-10 flex items-center justify-center lg:justify-start gap-6 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition duration-500">
-                 {/* Simple SVGs representing partners/standards */}
-                 <div className="flex -space-x-3">
-                    {[1,2,3,4].map((i) => (
-                      <div key={i} className="w-10 h-10 rounded-full border-2 border-white bg-slate-200 overflow-hidden">
-                        <img src={`https://i.pravatar.cc/100?img=${i+10}`} alt="User" className="w-full h-full object-cover"/>
-                      </div>
-                    ))}
-                 </div>
-                 <div className="text-sm font-medium text-slate-500">
-                   <strong className="text-slate-900">2,000+</strong> Patients Helped
-                 </div>
+              {/* Quick stats */}
+              <div className="mt-14 flex flex-wrap gap-10">
+                {[['24 / 7','AI assistance availability'],['RAG','Evidence-based guidance'],['4-in-1','AI · Book · Video · Notes']].map(([v,l]) => (
+                  <div key={v}>
+                    <p className="text-2xl font-extrabold text-white">{v}</p>
+                    <p className="text-xs text-white/45 mt-1 font-medium">{l}</p>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Right: The "Visual" */}
-            <div className="relative mx-auto w-full max-w-md lg:max-w-full order-1 lg:order-2">
-              
-              {/* Main Glass Card */}
-              <div className="glass-panel rounded-[2rem] p-6 md:p-8 shadow-2xl relative z-10 animate-float">
-                
-                {/* Header */}
-                <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-200/50">
-                   <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-emerald-600 flex items-center justify-center text-white text-xl shadow-lg">⚡️</div>
-                      <div>
-                        <h3 className="font-bold text-slate-800">AI Assistant</h3>
-                        <div className="flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                          <span className="text-[10px] text-slate-500 font-bold uppercase">Online</span>
-                        </div>
+            {/* ── Right: AI chat preview card ── */}
+            <div className="anim-fadeup anim-d2 hidden lg:flex items-center justify-center">
+              <div className="w-full max-w-[420px] bg-white/8 backdrop-blur-sm border border-white/15 rounded-3xl p-6 shadow-2xl">
+
+                {/* Card header */}
+                <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/10">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#00B4A0] flex items-center justify-center text-white">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                          d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-white font-bold text-sm">Medicare AI Assistant</p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="text-white/50 text-[11px] font-semibold">Online · RAG-powered</span>
                       </div>
-                   </div>
-                   <div className="bg-slate-100 px-3 py-1 rounded-full text-xs font-bold text-slate-500">
-                     v3.0 Pro
-                   </div>
+                    </div>
+                  </div>
+                  <div className="bg-white/10 px-3 py-1 rounded-full text-[11px] font-bold text-white/60">
+                    v3.0 Pro
+                  </div>
                 </div>
 
-                {/* Chat Interface */}
-                <div className="space-y-4">
-                  {/* User Message */}
+                {/* Chat bubbles */}
+                <div className="space-y-3 mb-5">
+                  {/* User message */}
                   <div className="flex justify-end">
-                    <div className="bg-slate-800 text-white rounded-2xl rounded-tr-sm px-5 py-3 text-sm max-w-[90%] shadow-lg">
-                      My head hurts on the left side and I see flashing lights.
+                    <div className="bg-[#00B4A0]/20 border border-[#00B4A0]/30 text-white text-sm rounded-2xl rounded-tr-sm px-4 py-3 max-w-[85%]">
+                      I have had a headache on the left side with flashing lights for 2 days.
                     </div>
                   </div>
 
-                  {/* AI Response */}
-                  <div className="flex justify-start w-full">
-                     <div className="bg-white border border-teal-100 rounded-2xl rounded-tl-sm p-4 w-full shadow-sm relative overflow-hidden">
-                       <div className="flex items-center gap-2 mb-2 text-teal-600">
-                         <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                         <span className="text-xs font-bold uppercase tracking-wide">Analyzing Symptoms...</span>
-                       </div>
-                       <p className="text-slate-700 text-sm font-medium leading-relaxed">
-                         Symptoms suggest <span className="text-teal-700 bg-teal-50 px-1 rounded">Migraine with Aura</span>.
-                       </p>
-                       <p className="text-slate-500 text-xs mt-2">
-                         Recommended: Consult a Neurologist immediately.
-                       </p>
-                       
-                       {/* Action Button */}
-                       <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                          <div className="flex -space-x-2">
-                            <div className="w-6 h-6 rounded-full bg-slate-200 border border-white"></div>
-                            <div className="w-6 h-6 rounded-full bg-slate-300 border border-white"></div>
-                          </div>
-                          <button className="text-xs bg-teal-600 text-white px-3 py-1.5 rounded-lg font-bold shadow hover:bg-teal-700 transition">Book Neurologist</button>
-                       </div>
-                     </div>
+                  {/* AI response */}
+                  <div className="flex justify-start">
+                    <div className="bg-white/10 border border-white/15 text-white text-sm rounded-2xl rounded-tl-sm px-4 py-4 max-w-[90%] w-full">
+                      <div className="flex items-center gap-2 mb-2">
+                        <svg className="w-3.5 h-3.5 text-[#00B4A0] animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>
+                        <p className="text-[#00B4A0] text-[11px] font-bold uppercase tracking-wide">AI Analysis</p>
+                      </div>
+                      <p className="leading-relaxed">
+                        Based on your symptoms, this is consistent with{' '}
+                        <span className="text-[#00B4A0] font-semibold">Migraine with Aura</span>.
+                        I recommend consulting a Neurologist.
+                      </p>
+                      <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between">
+                        <span className="text-white/40 text-[11px]">Evidence-based · Medical KB</span>
+                        <Link to="/patient/signup" className="text-[11px] bg-[#00B4A0] text-white px-3 py-1.5 rounded-lg font-bold hover:bg-teal-400 transition">
+                          Book Now
+                        </Link>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-
-              {/* Floating Element: Heart Rate */}
-              <div className="absolute top-1/2 -right-6 md:-right-12 glass-panel p-4 rounded-2xl shadow-xl animate-float-delayed z-20">
-                <div className="flex items-center gap-3">
-                  <div className="bg-red-50 p-2 rounded-full text-red-500">
-                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500 font-bold uppercase">Heart Rate</p>
-                    <p className="text-lg font-bold text-slate-900">72 <span className="text-xs text-slate-400 font-normal">bpm</span></p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Floating Element: Secure */}
-              <div className="absolute -bottom-6 -left-4 md:-left-8 bg-slate-900 text-white p-4 rounded-xl shadow-2xl animate-float z-20 flex items-center gap-3 max-w-[180px]">
-                 <div className="p-1.5 rounded-full bg-green-500/20 text-green-400">
-                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                 </div>
-                 <div>
-                    <p className="font-bold text-sm">HIPAA Compliant</p>
-                    <p className="text-[10px] text-slate-400">100% Secure Data</p>
-                 </div>
               </div>
             </div>
-
           </div>
         </div>
       </header>
 
-      {/* --- HOW IT WORKS (Timeline) --- */}
-      <section id="how-it-works" className="py-24 bg-white relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-20">
-            <h2 className="text-sm font-bold text-teal-600 uppercase tracking-widest mb-3">Workflow</h2>
-            <h3 className="text-3xl md:text-4xl font-extrabold text-slate-900">From Symptom to Solution</h3>
+      {/* ═══════════════════════════ HOW IT WORKS ════════════════════════════ */}
+      <section id="how-it-works" className="py-24 bg-gradient-to-b from-[#F4F7F9] to-white relative overflow-hidden">
+        {/* Background decorative elements */}
+        <div className="absolute top-20 right-0 w-96 h-96 bg-[#00B4A0]/5 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#0A2540]/5 rounded-full blur-[100px] pointer-events-none" />
+
+        <div className="max-w-7xl mx-auto px-5 sm:px-8 relative z-10">
+          {/* Header */}
+          <div className="text-center mb-16">
+            <p className="text-xs font-bold text-[#00B4A0] uppercase tracking-widest mb-3">Simple & Effective</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#0A2540] leading-tight">
+              How It Works
+            </h2>
+            <p className="text-slate-500 mt-5 max-w-2xl mx-auto text-base leading-relaxed">
+              From symptom analysis to specialist consultation, get quality healthcare in four simple steps
+            </p>
           </div>
 
-          <div className="relative grid md:grid-cols-3 gap-8">
-            {/* Connector Line */}
-            <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-0.5 bg-gradient-to-r from-slate-200 via-teal-200 to-slate-200 z-0"></div>
-
+          {/* Steps Grid */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
-              { 
-                emoji: "🗣️", 
-                title: "Describe Symptoms", 
-                desc: "Chat naturally with our AI. It asks relevant follow-up questions just like a real doctor." 
+              {
+                step: '01',
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
+                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                    <path d="M8 10h.01M12 10h.01M16 10h.01" strokeWidth="2.5" />
+                  </svg>
+                ),
+                title: 'Describe Symptoms',
+                desc: 'Chat with our AI assistant in plain language, just as you would talk to a doctor.',
+                delay: '0s'
               },
-              { 
-                emoji: "🧠", 
-                title: "AI Analysis", 
-                desc: "Our model references verified medical literature to identify potential conditions accurately." 
+              {
+                step: '02',
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
+                    <rect x="3" y="3" width="7" height="7" rx="1" />
+                    <rect x="14" y="3" width="7" height="7" rx="1" />
+                    <rect x="14" y="14" width="7" height="7" rx="1" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" />
+                    <path d="M10 6.5h4M10 17.5h4M6.5 10v4M17.5 10v4" />
+                  </svg>
+                ),
+                title: 'AI Analysis',
+                desc: 'Get instant evidence-based insights from verified medical textbooks and guidelines.',
+                delay: '0.15s'
               },
-              { 
-                emoji: "🩺", 
-                title: "Get Treated", 
-                desc: "Instantly connect with the right specialist near you for an in-person or video visit." 
+              {
+                step: '03',
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8">
+                    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                    <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="1.6" />
+                    <circle cx="19" cy="19" r="3.5" fill="currentColor" />
+                    <path d="M17.5 19l1 1 2-2" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ),
+                title: 'Book Specialist',
+                desc: 'Browse verified doctors, view real-time availability, and book appointments instantly.',
+                delay: '0.3s'
+              },
+              {
+                step: '04',
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
+                    <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+                    <rect x="9" y="3" width="6" height="4" rx="1" />
+                    <path d="M9 12h6M9 16h4" />
+                  </svg>
+                ),
+                title: 'Video Consult',
+                desc: 'Connect via HD video call and receive AI-generated consultation notes afterward.',
+                delay: '0.45s'
               }
-            ].map((step, idx) => (
-              <div key={idx} className="relative z-10 group text-center">
-                <div className="w-24 h-24 mx-auto bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 flex items-center justify-center mb-8 group-hover:scale-110 group-hover:shadow-teal-500/20 group-hover:border-teal-100 transition duration-300">
-                  <span className="text-4xl filter drop-shadow-sm">{step.emoji}</span>
+            ].map((item, idx) => (
+              <div key={idx} 
+                className="group relative"
+                style={{ animation: 'fadeSlideIn 0.6s ease-out both', animationDelay: item.delay }}>
+                
+                {/* Connecting line (hidden on mobile and last item) */}
+                {idx < 3 && (
+                  <div className="hidden lg:block absolute top-16 left-[calc(50%+2rem)] w-[calc(100%-4rem)] h-[2px] bg-gradient-to-r from-[#00B4A0]/40 via-[#00B4A0]/20 to-transparent" />
+                )}
+
+                <div className="relative bg-white rounded-2xl p-8 border border-slate-100 hover:border-[#00B4A0]/30 transition-all duration-300 hover:shadow-xl hover:shadow-[#00B4A0]/10 hover:-translate-y-1 h-full">
+                  {/* Step number badge */}
+                  <div className="absolute -top-4 -right-4 w-12 h-12 rounded-full bg-gradient-to-br from-[#00B4A0] to-teal-400 flex items-center justify-center text-white font-extrabold text-sm shadow-lg shadow-[#00B4A0]/30">
+                    {item.step}
+                  </div>
+
+                  {/* Icon */}
+                  <div className="text-[#00B4A0] mb-6 group-hover:scale-110 transition-transform duration-300">
+                    {item.icon}
+                  </div>
+
+                  {/* Content */}
+                  <h3 className="text-xl font-extrabold text-[#0A2540] mb-3 leading-tight">
+                    {item.title}
+                  </h3>
+                  <p className="text-slate-500 text-sm leading-relaxed">
+                    {item.desc}
+                  </p>
+
+                  {/* Hover effect indicator */}
+                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#00B4A0] to-teal-400 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left rounded-b-2xl" />
                 </div>
-                <h4 className="text-xl font-bold text-slate-900 mb-3">{step.title}</h4>
-                <p className="text-slate-500 leading-relaxed px-4">{step.desc}</p>
               </div>
             ))}
           </div>
+
         </div>
       </section>
 
-      {/* --- FEATURES GRID --- */}
-      <section id="features" className="py-24 bg-slate-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-2 gap-16 items-center">
-            
-            {/* Left Content */}
-            <div>
-              <div className="w-14 h-14 bg-teal-100 rounded-2xl flex items-center justify-center text-teal-600 mb-8 rotate-3">
-                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
-              </div>
-              <h3 className="text-3xl md:text-4xl font-bold text-slate-900 mb-6">Science, meet Speed.</h3>
-              <p className="text-lg text-slate-600 mb-8 leading-relaxed">
-                We don't just guess. Medicare AI utilizes <strong>Retrieval-Augmented Generation (RAG)</strong> to cross-reference your symptoms against thousands of verified medical journals and case studies in real-time.
-              </p>
-              
-              <ul className="space-y-4">
-                {['Verified Medical Sources', '24/7 Availability', 'Seamless Appointment Booking'].map((item, i) => (
-                  <li key={i} className="flex items-center gap-3 text-slate-700 font-medium p-3 rounded-lg hover:bg-white hover:shadow-sm transition">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-teal-500 flex items-center justify-center text-white">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
-                    </div>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            
-            {/* Right Cards */}
-            <div className="grid gap-6">
-              {[
-                { title: "Real-Time Booking", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z", desc: "View live doctor availability." },
-                { title: "Secure Video Calls", icon: "M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z", desc: "HD telemedicine integrated." },
-                { title: "Encrypted Records", icon: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z", desc: "Your health data stays private." }
-              ].map((card, i) => (
-                <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-start gap-4 hover:shadow-lg hover:border-teal-100 transition duration-300">
-                   <div className="text-teal-500 bg-teal-50 p-3 rounded-xl">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={card.icon}></path></svg>
-                   </div>
-                   <div>
-                     <h4 className="font-bold text-slate-900">{card.title}</h4>
-                     <p className="text-sm text-slate-500 mt-1">{card.desc}</p>
-                   </div>
-                </div>
+      {/* ═══════════════════════════ SERVICES ════════════════════════════════ */}
+      <section id="services" className="py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8">
+
+          <div className="text-center mb-14">
+            <p className="text-xs font-bold text-[#00B4A0] uppercase tracking-widest mb-3">Everything You Need</p>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-[#0A2540]">One Platform. Two Portals.</h2>
+            <p className="text-slate-500 mt-4 max-w-xl mx-auto text-sm leading-relaxed">
+              Whether you're seeking care or delivering it, MediCare AI is built for you.
+            </p>
+          </div>
+
+          {/* Primary tabs: For Patients / For Doctors */}
+          <div className="flex justify-center mb-12">
+            <div className="inline-flex rounded-xl bg-[#F4F7F9] p-1 border border-slate-200">
+              {[['patient','For Patients'],['doctor','For Doctors']].map(([tab, label]) => (
+                <button key={tab} onClick={() => { setServiceTab(tab); setActiveIdx(0); }}
+                  className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${
+                    serviceTab === tab ? 'bg-[#0A2540] text-white shadow-md' : 'text-slate-500 hover:text-slate-700'}`}>
+                  {label}
+                </button>
               ))}
             </div>
-
           </div>
-        </div>
-      </section>
 
-      {/* --- DOCTOR CTA (Dark Theme) --- */}
-      <section className="relative py-24 bg-slate-900 overflow-hidden">
-        {/* Background Noise & Effects */}
-        <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]"></div>
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-teal-500 rounded-full blur-[128px] opacity-20"></div>
-        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-purple-500 rounded-full blur-[128px] opacity-10"></div>
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-slate-700 p-8 md:p-16 text-center md:text-left flex flex-col md:flex-row items-center justify-between gap-12">
-            <div className="md:w-1/2">
-              <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Are you a Medical Professional?</h2>
-              <p className="text-slate-300 text-lg mb-8 leading-relaxed">
-                Join the Medicare AI network. Streamline your practice with our dedicated <strong>Doctor Portal</strong> and connect with patients who truly need your expertise.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Link to="/doctor/signup" className="inline-flex items-center justify-center bg-teal-500 hover:bg-teal-400 text-slate-900 font-bold py-4 px-8 rounded-xl shadow-lg shadow-teal-500/20 transition transform hover:-translate-y-1">
-                  Join Network
-                </Link>
-                <Link to="/login" className="inline-flex items-center justify-center bg-transparent border border-slate-600 text-white hover:bg-slate-700 font-bold py-4 px-8 rounded-xl transition">
-                  Doctor Login
+          {/* Carousel grid */}
+          <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-start">
+            {/* Left: service tabs + content */}
+            <div>
+              {/* Content area - fades in on service change */}
+              <div key={activeIdx} className="anim-fadeup">
+                <h3 className="text-2xl sm:text-3xl font-extrabold text-[#0A2540] leading-tight">
+                  {activeService.title}
+                </h3>
+                <p className="text-slate-500 mt-4 leading-relaxed">{activeService.desc}</p>
+                {activeService.bullets && (
+                  <ul className="mt-5 space-y-2.5">
+                    {activeService.bullets.map((b, i) => (
+                      <li key={i} className="flex items-start gap-2.5 text-sm text-slate-600">
+                        <svg className="w-4 h-4 mt-0.5 text-[#00B4A0] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                        </svg>
+                        {b}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <Link to={activeService.href}
+                  className="inline-flex items-center gap-2 mt-6 px-6 py-3 rounded-xl bg-[#00B4A0] text-white font-bold text-sm shadow-lg shadow-teal-500/20 hover:bg-teal-400 transition hover:-translate-y-0.5">
+                  {activeService.cta}
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+                  </svg>
                 </Link>
               </div>
             </div>
-            
-            {/* Graphic */}
-            <div className="md:w-5/12 w-full relative">
-               <div className="absolute -inset-1 bg-gradient-to-r from-teal-500 to-purple-500 rounded-2xl blur opacity-30"></div>
-               <div className="bg-slate-900 rounded-2xl border border-slate-700 p-6 shadow-2xl relative overflow-hidden">
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="w-12 h-12 bg-slate-700 rounded-full"></div>
-                    <div className="space-y-2">
-                       <div className="h-2 w-24 bg-slate-700 rounded"></div>
-                       <div className="h-2 w-16 bg-slate-700 rounded"></div>
+
+            {/* Right: Image carousel */}
+            <div
+              className="relative"
+              onMouseEnter={() => setPaused(true)}
+              onMouseLeave={() => setPaused(false)}
+            >
+              <div className="relative bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xl shadow-slate-900/5">
+                <div className="relative aspect-[4/3] overflow-hidden">
+                  {carouselServices.map((s, imgIdx) => (
+                    <div key={imgIdx}
+                      className="absolute inset-0 transition-opacity duration-700 ease-in-out"
+                      style={{ opacity: imgIdx === activeIdx ? 1 : 0 }}>
+                      {s.imgFit === 'contain' && (
+                        <div className="absolute inset-0 bg-cover bg-center blur-xl scale-110"
+                          style={{ backgroundImage: `url(${s.img})` }} />
+                      )}
+                      <img src={s.img} alt={s.title}
+                        className="w-full h-full relative z-10"
+                        style={{ objectFit: s.imgFit || 'cover', objectPosition: s.imgPos || 'center center' }} />
                     </div>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="h-12 w-full bg-slate-800 rounded-lg border border-slate-700 flex items-center px-4">
-                      <div className="w-2 h-2 rounded-full bg-green-500 mr-3"></div>
-                      <div className="h-2 w-20 bg-slate-700 rounded"></div>
-                    </div>
-                    <div className="h-12 w-full bg-slate-800 rounded-lg border border-slate-700 flex items-center px-4">
-                      <div className="w-2 h-2 rounded-full bg-teal-500 mr-3"></div>
-                      <div className="h-2 w-32 bg-slate-700 rounded"></div>
-                    </div>
-                  </div>
-               </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Image indicators + nav */}
+              <div className="mt-4 flex items-center gap-3">
+                <div className="flex gap-2 flex-1">
+                  {carouselServices.map((_, i) => (
+                    <button key={i} onClick={() => setActiveIdx(i)}
+                      className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
+                        i === activeIdx ? 'bg-[#00B4A0] w-8' : 'bg-slate-200 w-4 hover:bg-slate-300'
+                      }`} />
+                  ))}
+                </div>
+                <div className="flex gap-1.5">
+                  <button onClick={() => setActiveIdx(prev => (prev - 1 + carouselServices.length) % carouselServices.length)}
+                    className="w-9 h-9 rounded-full bg-white border border-slate-200 hover:border-[#00B4A0] hover:bg-[#00B4A0]/5 flex items-center justify-center transition-all cursor-pointer">
+                    <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button onClick={() => setActiveIdx(prev => (prev + 1) % carouselServices.length)}
+                    className="w-9 h-9 rounded-full bg-white border border-slate-200 hover:border-[#00B4A0] hover:bg-[#00B4A0]/5 flex items-center justify-center transition-all cursor-pointer">
+                    <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* CTA */}
+          <div className="text-center mt-14">
+            {serviceTab === 'patient' ? (
+              <Link to="/patient/signup"
+                className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-[#00B4A0] text-white font-bold text-sm shadow-lg shadow-teal-500/20 hover:bg-teal-400 transition hover:-translate-y-0.5">
+                Create Patient Account
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7"/></svg>
+              </Link>
+            ) : (
+              <Link to="/doctor/signup"
+                className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-[#0A2540] text-white font-bold text-sm shadow-lg hover:bg-slate-800 transition hover:-translate-y-0.5">
+                Join as a Doctor
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7"/></svg>
+              </Link>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════ TESTIMONIALS ════════════════════════════ */}
+      <section className="py-24 bg-[#F4F7F9]">
+        <div className="max-w-6xl mx-auto px-5 sm:px-8">
+
+          {/* Header */}
+          <div className="text-center mb-14">
+            <p className="text-xs font-bold text-[#00B4A0] uppercase tracking-widest mb-3">Testimonials</p>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-[#0A2540]">Trusted by Patients & Doctors</h2>
+            <p className="text-slate-500 mt-4 max-w-lg mx-auto text-sm leading-relaxed">
+              See what healthcare professionals and patients across the region are saying about MediCare AI.
+            </p>
+          </div>
+
+          {/* Two scrolling columns */}
+          <div className="grid md:grid-cols-2 gap-6 overflow-hidden">
+            <ScrollColumn items={COL_A} direction="up"   />
+            <ScrollColumn items={COL_B} direction="down" />
+          </div>
+        </div>
+      </section>
+
+
+
+      {/* ═══════════════════════════════ CTA ═════════════════════════════════ */}
+      <section className="py-24 bg-white">
+        <div className="max-w-4xl mx-auto px-5 sm:px-8 text-center">
+          <div className="bg-gradient-to-br from-[#0A2540] to-[#0d3060] rounded-3xl p-12 sm:p-16 relative overflow-hidden shadow-2xl shadow-slate-900/20">
+            <div className="absolute top-0 right-0 w-80 h-80 bg-[#00B4A0]/20 rounded-full blur-[80px] pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-60 h-60 bg-teal-900/30 rounded-full blur-[60px] pointer-events-none" />
+            <div className="relative z-10">
+              <p className="text-xs font-bold text-[#00B4A0] uppercase tracking-widest mb-4">Start Today</p>
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-5">
+                Your health deserves<br />intelligent support.
+              </h2>
+              <p className="text-white/55 mb-10 max-w-lg mx-auto leading-relaxed text-sm">
+                Join thousands who have already taken control of their healthcare journey with evidence-based AI guidance and seamless access to verified specialists.
+              </p>
+              <div className="flex flex-wrap gap-4 justify-center">
+                <Link to="/patient/signup"
+                  className="px-8 py-4 rounded-xl bg-[#00B4A0] text-white font-bold text-sm shadow-lg shadow-teal-500/20 hover:bg-teal-400 transition hover:-translate-y-0.5">
+                  Get Started Free
+                </Link>
+                <Link to="/login"
+                  className="px-8 py-4 rounded-xl border border-white/20 text-white font-bold text-sm hover:bg-white/10 transition">
+                  I Have an Account
+                </Link>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* --- FOOTER --- */}
-      <footer className="bg-white border-t border-slate-200 pt-16 pb-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
-            <div className="col-span-2 md:col-span-1">
-              <span className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                 <div className="w-6 h-6 bg-teal-500 rounded-md"></div>
-                 Medicare<span className="text-teal-600">AI</span>
-              </span>
-              <p className="text-sm text-slate-500 mt-4 leading-relaxed max-w-xs">
-                Empowering patients and doctors with intelligent, data-driven healthcare solutions.
+      {/* ════════════════════════════ FOOTER ═════════════════════════════════ */}
+      <footer className="bg-[#0A2540] pt-16 pb-8">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12 pb-12 border-b border-white/10">
+
+            <div className="col-span-2">
+              <div className="mb-4">
+                <span className="text-xl font-extrabold text-white tracking-tight">
+                  Medicare<span className="text-[#00B4A0]">AI</span>
+                </span>
+              </div>
+              <p className="text-sm text-white/40 leading-relaxed max-w-[240px]">
+                An intelligent health support system bridging the gap between patients and qualified doctors across developing regions.
+              </p>
+              <p className="mt-5 text-xs font-bold text-[#00B4A0] uppercase tracking-widest">
+                An Intelligent Health Support System
               </p>
             </div>
+
             <div>
-              <h4 className="font-bold text-slate-900 mb-4">Patient</h4>
-              <ul className="space-y-2 text-sm text-slate-600">
-                <li><Link to="/ai-chat" className="hover:text-teal-600 transition">Check Symptoms</Link></li>
-                <li><Link to="/" className="hover:text-teal-600 transition">Find a Doctor</Link></li>
-                <li><Link to="/patient/login" className="hover:text-teal-600 transition">My Dashboard</Link></li>
+              <h4 className="text-sm font-bold text-white mb-4">Patients</h4>
+              <ul className="space-y-2.5 text-sm text-white/45">
+                <li><Link to="/patient/signup" className="hover:text-[#00B4A0] transition">Sign Up</Link></li>
+                <li><Link to="/login"          className="hover:text-[#00B4A0] transition">Login</Link></li>
+                <li><Link to="/patient/signup" className="hover:text-[#00B4A0] transition">Chat with AI</Link></li>
+                <li><Link to="/patient/signup" className="hover:text-[#00B4A0] transition">Find Doctors</Link></li>
               </ul>
             </div>
+
             <div>
-              <h4 className="font-bold text-slate-900 mb-4">Doctor</h4>
-              <ul className="space-y-2 text-sm text-slate-600">
-                <li><Link to="/login" className="hover:text-teal-600 transition">Portal Login</Link></li>
-                <li><Link to="/doctor/signup" className="hover:text-teal-600 transition">Join Network</Link></li>
+              <h4 className="text-sm font-bold text-white mb-4">Doctors</h4>
+              <ul className="space-y-2.5 text-sm text-white/45">
+                <li><Link to="/doctor/signup" className="hover:text-[#00B4A0] transition">Join Network</Link></li>
+                <li><Link to="/login"         className="hover:text-[#00B4A0] transition">Doctor Login</Link></li>
+                <li><Link to="/doctor/signup" className="hover:text-[#00B4A0] transition">Manage Schedule</Link></li>
               </ul>
             </div>
+
             <div>
-               <h4 className="font-bold text-slate-900 mb-4">Support</h4>
-               <ul className="space-y-2 text-sm text-slate-600">
-                <li><a href="#" className="hover:text-teal-600 transition">Help Center</a></li>
-                <li><a href="#" className="hover:text-teal-600 transition">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-teal-600 transition">Terms of Service</a></li>
+              <h4 className="text-sm font-bold text-white mb-4">Platform</h4>
+              <ul className="space-y-2.5 text-sm text-white/45">
+                <li><a href="#how-it-works" className="hover:text-[#00B4A0] transition">How It Works</a></li>
+                <li><a href="#services"     className="hover:text-[#00B4A0] transition">Services</a></li>
+                <li><a href="#"             className="hover:text-[#00B4A0] transition">Privacy Policy</a></li>
               </ul>
             </div>
           </div>
-          <div className="border-t border-slate-100 pt-8 text-center text-sm text-slate-400">
-            © {new Date().getFullYear()} Medicare AI Project. All rights reserved.
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-xs text-white/25">© {new Date().getFullYear()} MediCare AI. All rights reserved.</p>
+            <p className="text-xs text-white/20">AI-generated content is informational only and does not constitute medical advice.</p>
           </div>
         </div>
       </footer>

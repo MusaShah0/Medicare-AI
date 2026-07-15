@@ -1,6 +1,7 @@
-const mongoose=require('mongoose')
-const SechduleSchema=mongoose.Schema({
-doctor: {
+const mongoose = require('mongoose')
+
+const SechduleSchema = mongoose.Schema({
+  doctor: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Doctor',
     required: true
@@ -13,25 +14,26 @@ doctor: {
     type: String,
     required: true
   },
-  day: {
-    type: String,
-    enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+  date: {
+    type: Date,
+    required: true
   },
-  clinic_fee:{
-    type:Number,
-    required:true
+  clinic_fee: {
+    type: Number,
+    required: true
   },
   slotDuration: {
-        type: Number},
+    type: Number
+  },
   status: {
     type: String,
     enum: ['available', 'booked', 'completed', 'cancelled', 'ongoing'],
     default: 'available'
-  },
-  
-}, { timestamps: true
+  }
+}, { timestamps: true })
 
-})
+// Prevent duplicate slots for same doctor on same date+time
+SechduleSchema.index({ doctor: 1, date: 1, startTime: 1 }, { unique: true })
 
-const Sechdule_Model=mongoose.model('Sechdule',SechduleSchema)
-module.exports=Sechdule_Model
+const Sechdule_Model = mongoose.model('Sechdule', SechduleSchema)
+module.exports = Sechdule_Model

@@ -1,0 +1,17 @@
+[
+  {
+    "question": "What does elevated ALT indicate?",
+    "expected_keywords": ["liver", "inflammation", "fatty liver"],
+    "expected_sources": ["liver", "alt"]
+  },
+  {
+    "question": "What are common symptoms of anemia?",
+    "expected_keywords": ["fatigue", "weakness", "pallor"],
+    "expected_sources": ["cbc", "anemia"]
+  },
+  {
+    "question": "What should be done in case of chest pain?",
+    "expected_keywords": ["emergency", "immediately", "medical care"],
+    "expected_sources": ["cardiac"]
+  }
+]

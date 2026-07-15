@@ -3,12 +3,31 @@ const PatientModel = require('../Models/Patient.model')
 
 const P_SignUp = async (req, res) => {
   try {
-    // 1. Destructure the new fields
     const { first_Name, last_Name, email, password, age, gender } = req.body;
 
-    // 2. Validation: Check if email already exists
+    // Input validation
+    if (!first_Name || !last_Name || !email || !password) {
+      return res.status(400).json({ status: 0, msg: "All fields are required." });
+    }
+    if (first_Name.length > 50 || last_Name.length > 50) {
+      return res.status(400).json({ status: 0, msg: "Name must be 50 characters or fewer." });
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ status: 0, msg: "Invalid email address." });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ status: 0, msg: "Password must be at least 8 characters." });
+    }
+    const ageNum = Number(age);
+    if (age === undefined || age === null || age === '' || isNaN(ageNum) || ageNum < 0 || ageNum > 120) {
+      return res.status(400).json({ status: 0, msg: "Please provide a valid age (0-120)." });
+    }
+    const validGenders = ['Male', 'Female', 'Other'];
+    if (!validGenders.includes(gender)) {
+      return res.status(400).json({ status: 0, msg: "Gender must be Male, Female, or Other." });
+    }
 
-  
     const existingUser = await PatientModel.findOne({ email });
     if (existingUser) {
       return res.status(409).json({
@@ -30,13 +49,19 @@ const P_SignUp = async (req, res) => {
     // 4. Save to Database (Middleware handles password hashing)
     await patient.save();
 
-    // 5. Generate Token (Optional: Many apps log the user in immediately after signup)
+    // 5. Auto-login: set httpOnly cookie so patient lands on dashboard
     const token = await patient.Generate_Token();
+    res.cookie('token', token, {
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production'
+    });
 
     return res.status(201).json({
       status: 1,
+      login: true,
+      role: 'patient',
       msg: "Signup successful",
-      token, // Returning token so the patient is logged in immediately
       data: {
         id: patient._id,
         first_Name: patient.first_Name
@@ -55,7 +80,6 @@ const P_SignUp = async (req, res) => {
 
 const P_LoginIn = async (req, res) => {
   try {
-    console.log(req.body)
     const { email, password } = req.body;
 
     const user = await PatientModel.findOne({ email });
@@ -80,11 +104,15 @@ const P_LoginIn = async (req, res) => {
   
 
     res.cookie("token", token, {
-      httpOnly: true
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production'
     });
 
     return res.json({
         status: 1,
+        login: true,
+        role: 'patient',
         msg: "Login Successful",
         data: {
             _id: user._id,
@@ -105,24 +133,62 @@ const P_LoginIn = async (req, res) => {
 };
 const logout = (req, res, next) => {
   try {
-    // Clear the token cookie
-    // IMPORTANT: The options (httpOnly, secure, sameSite) must match 
-    // exactly how you set the cookie during login.
     res.clearCookie("token", {
-      withCredentials: true,
       httpOnly: true,
-      // secure: true, // Uncomment if using HTTPS
-      // sameSite: "none", // Uncomment if using HTTPS/Cross-site
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production',
     });
-
-    return res.status(200).json({ 
-      status: 1, 
-      message: "Logged out successfully" 
-    });
+    return res.status(200).json({ status: 1, message: "Logged out successfully" });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ status: 0, message: "Logout failed" });
   }
 };
-module.exports={P_SignUp,P_LoginIn, logout}
+
+const verifyPatient = (req, res) => {
+  return res.status(200).json({ status: 1, authenticated: true, id: req.PatientId });
+};
+
+const bcrypt = require('bcrypt')
+
+const getProfile = async (req, res) => {
+  try {
+    const patient = await PatientModel.findById(req.PatientId).select('-password')
+    if (!patient) return res.status(404).json({ success: false, message: 'Patient not found.' })
+    res.json({ success: true, data: patient })
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message })
+  }
+}
+
+const updateProfile = async (req, res) => {
+  try {
+    const { first_Name, last_Name, age, gender, password } = req.body
+    const patient = await PatientModel.findById(req.PatientId)
+    if (!patient) return res.status(404).json({ success: false, message: 'Patient not found.' })
+
+    const ageNum = Number(age)
+    if (age !== undefined && (isNaN(ageNum) || ageNum < 0 || ageNum > 120))
+      return res.status(400).json({ success: false, message: 'Invalid age.' })
+    if (gender && !['Male','Female','Other'].includes(gender))
+      return res.status(400).json({ success: false, message: 'Invalid gender.' })
+    if (password && password.length < 8)
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters.' })
+
+    if (first_Name) patient.first_Name = first_Name
+    if (last_Name)  patient.last_Name  = last_Name
+    if (age !== undefined) patient.age = ageNum
+    if (gender)     patient.gender     = gender
+    if (password)   patient.password   = password  // pre-save hook hashes
+
+    await patient.save()
+    const updated = patient.toObject()
+    delete updated.password
+    res.json({ success: true, message: 'Profile updated.', data: updated })
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message })
+  }
+}
+
+module.exports={P_SignUp, P_LoginIn, logout, verifyPatient, getProfile, updateProfile}
 

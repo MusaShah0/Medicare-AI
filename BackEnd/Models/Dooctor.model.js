@@ -36,7 +36,22 @@ const DoctorSchema = mongoose.Schema({
     degrees: [{
         type: String,
         required: true
-    }]
+    }],
+    completed_appointments: {
+        type: Number,
+        default: 0
+    },
+    licenseNumber: {
+        type: String   // required enforced in D_SignUp controller; omitted here so existing doctors can still save
+    },
+    degreeFile: {
+        type: String,
+        default: null
+    },
+    isApproved: {
+        type: Boolean,
+        default: true  // true = existing/approved; new registrations are explicitly set to null (pending)
+    }
 }, { timestamps: true });
 
 // --- MIDDLEWARE ---
