@@ -1,6 +1,5 @@
 # MediCare AI - Intelligent Telemedicine Platform
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
 [![Python Version](https://img.shields.io/badge/python-%3E%3D3.9-blue)](https://www.python.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-7.0-green)](https://www.mongodb.com/)
@@ -23,7 +22,6 @@
 - [Deployment](#deployment)
 - [Security Considerations](#security-considerations)
 - [Contributing](#contributing)
-- [License](#license)
 
 ---
 
@@ -733,12 +731,6 @@ Contributions are welcome! Please follow these steps:
 
 ---
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
 ## 👥 Authors
 
 - **Musa Shah** - *Initial work* - [MusaShah0](https://github.com/MusaShah0)
@@ -752,12 +744,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **LangChain** for simplifying RAG implementation
 - **MongoDB** for flexible data modeling
 - **React** and **Vite** teams for excellent developer experience
-
----
-
-## 📞 Support
-
-For support, email support@medicare-ai.com or open an issue on GitHub.
 
 ---
 
